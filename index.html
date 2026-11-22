@@ -1,0 +1,1151 @@
+<meta charset="utf-8">
+<title>Rift EHP Shop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a League-client style shop window on the left, the champion + EHP readout on the right,
+   then the enemy draft and the health-vs-resistance decision chart below. Deliberately dark-only. */
+:root{
+  color-scheme: dark;
+  --void:#010a13; --panel:#091428; --panel2:#0a1428; --well:#050c17; --line:#1e2328; --line2:#463714;
+  --gold:#c8aa6e; --gold-d:#785a28; --gold-b:#f0e6d2; --gold-num:#c89b3c;
+  --text:#a09b8c; --text-b:#f0e6d2; --dim:#5b5a56;
+  --hex:#0ac8b9; --hex-d:#005a82; --hex-l:#cdfafa;
+  --phys:#f0864a; --magic:#4fb3f0; --true:#e9e4d8; --hp:#3fbf7f; --bad:#e84057; --warn:#e8b23a;
+  --f-display:"Cinzel","Times New Roman",serif;
+  --f-body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--void);color:var(--text)}
+body{font-family:var(--f-body);font-size:13px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px 40px;
+  background:radial-gradient(1200px 500px at 30% -10%,#0b2238 0%,transparent 60%),var(--void)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--hex);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);color:var(--gold-b);letter-spacing:.06em;text-transform:uppercase;margin:0;text-wrap:balance}
+h2{font-size:14px}
+h3{font-size:12px;color:var(--gold)}
+.lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--text)}
+.wrap{max-width:1480px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.topbar{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line2);padding-bottom:10px}
+.topbar h1{font-size:22px;background:linear-gradient(180deg,var(--gold-b),var(--gold));-webkit-background-clip:text;background-clip:text;color:transparent}
+.topbar p{margin:0;color:var(--text);max-width:70ch}
+.patch{font-size:11px;color:var(--hex);border:1px solid var(--hex-d);padding:2px 8px;letter-spacing:.08em}
+
+/* framed panel, League client style: thin gold border + inner dark */
+.frame{background:linear-gradient(180deg,var(--panel) 0%,var(--panel2) 100%);border:1px solid var(--gold-d);position:relative;min-width:0}
+.frame::before{content:"";position:absolute;inset:3px;border:1px solid rgba(200,170,110,.12);pointer-events:none}
+.frame-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.pad{padding:12px 14px}
+
+.row1{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:14px;align-items:start}
+@media (max-width:1100px){.row1{grid-template-columns:1fr}}
+
+/* ---------------- SHOP ---------------- */
+.shop{display:flex;flex-direction:column}
+.shop-top{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid var(--line2);flex-wrap:wrap}
+.tab{background:none;border:none;font-family:var(--f-display);font-weight:700;letter-spacing:.08em;font-size:12px;color:var(--text);padding:6px 10px;text-transform:uppercase;border-bottom:2px solid transparent}
+.tab[aria-selected="true"]{color:var(--gold-b);border-bottom-color:var(--gold)}
+.tab:hover{color:var(--gold-b)}
+.search{margin-left:auto;display:flex;align-items:center;background:var(--well);border:1px solid var(--line2);padding:0 8px;min-width:0;flex:0 1 240px}
+.search input{background:none;border:none;outline:none;padding:6px 4px;width:100%;color:var(--text-b)}
+.search:focus-within{border-color:var(--gold)}
+.shop-body{display:grid;grid-template-columns:46px minmax(0,1fr) 300px;min-height:560px}
+@media (max-width:820px){.shop-body{grid-template-columns:40px minmax(0,1fr)}.detail{grid-column:1/-1;border-left:none!important;border-top:1px solid var(--line2)}}
+.filters{display:flex;flex-direction:column;gap:2px;padding:6px 4px;border-right:1px solid var(--line2);background:rgba(1,10,19,.5)}
+.fbtn{width:36px;height:36px;padding:3px;border:1px solid transparent;background:none;display:grid;place-items:center;filter:grayscale(1) brightness(.65);transition:filter .12s}
+.fbtn img{width:26px;height:26px;border:1px solid var(--line2)}
+.fbtn:hover{filter:none}
+.fbtn[aria-pressed="true"]{filter:none;border-color:var(--gold)}
+.fbtn.all{font-family:var(--f-display);font-size:10px;color:var(--gold);filter:none}
+.grid-wrap{overflow-y:auto;max-height:640px;padding:6px 12px 14px;min-width:0}
+.sec-h{display:flex;align-items:center;gap:8px;margin:12px 0 6px;font-family:var(--f-display);font-size:11px;letter-spacing:.1em;color:var(--gold);text-transform:uppercase}
+.sec-h::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line2),transparent)}
+.igrid{display:flex;flex-wrap:wrap;gap:6px 4px}
+.it{width:52px;background:none;border:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:1px}
+.it .ic{width:44px;height:44px;border:1px solid var(--gold-d);display:block;position:relative;background:#000}
+.it .ic img{width:100%;height:100%;display:block}
+.it .g{font-size:11px;color:var(--gold-num);font-weight:600}
+.it:hover .ic{border-color:var(--gold-b);box-shadow:0 0 8px rgba(200,170,110,.5)}
+.it.sel .ic{border-color:var(--hex);box-shadow:0 0 0 1px var(--hex),0 0 10px rgba(10,200,185,.5)}
+.it.owned .ic::after{content:"";position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;background:var(--hex);clip-path:polygon(100% 0,100% 100%,0 100%)}
+.it.blocked{opacity:.38}
+.it .badge{position:absolute;left:0;top:0;font-size:9px;background:rgba(1,10,19,.85);color:var(--hp);padding:0 3px;font-weight:700}
+.empty-note{color:var(--dim);padding:20px 0}
+
+.detail{border-left:1px solid var(--line2);padding:12px;display:flex;flex-direction:column;gap:10px;background:rgba(1,10,19,.35);min-width:0}
+.tree{display:flex;justify-content:center;padding:4px 0 8px;overflow-x:auto}
+.node{display:flex;flex-direction:column;align-items:center;position:relative}
+.node>.nb{background:none;border:none;padding:0;display:flex;flex-direction:column;align-items:center}
+.node>.nb img{width:34px;height:34px;border:1px solid var(--gold-d);display:block}
+.node>.nb.root img{width:44px;height:44px;border-color:var(--gold)}
+.node>.nb.have img{border-color:var(--hex);box-shadow:0 0 0 1px var(--hex)}
+.node>.nb span{font-size:10px;color:var(--gold-num)}
+.kids{display:flex;gap:6px;padding-top:14px;position:relative}
+.kids::before{content:"";position:absolute;top:0;left:50%;height:7px;border-left:1px solid var(--gold-d)}
+.kids>.node{padding-top:7px}
+.kids>.node::before{content:"";position:absolute;top:0;left:0;right:0;border-top:1px solid var(--gold-d)}
+.kids>.node:first-child::before{left:50%}
+.kids>.node:last-child::before{right:50%}
+.kids>.node:only-child::before{display:none}
+.kids>.node::after{content:"";position:absolute;top:0;left:50%;height:7px;border-left:1px solid var(--gold-d)}
+.d-name{font-family:var(--f-display);color:var(--gold-b);font-size:15px;letter-spacing:.04em}
+.d-cost{display:flex;gap:10px;align-items:center;color:var(--gold-num);font-weight:600}
+.coin{display:inline-block;width:10px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#ffe9a8,#c89b3c 55%,#785a28);margin-right:4px;vertical-align:-1px}
+.d-desc{font-size:12px;color:var(--text);line-height:1.5;max-height:250px;overflow-y:auto}
+.d-desc .t-stats{display:block;color:var(--text-b);margin-bottom:2px}
+.d-desc .t-attention{color:var(--gold-b);font-weight:600}
+.d-desc .t-passive,.d-desc .t-active{color:var(--gold-b);font-weight:600}
+.d-desc .t-active{color:var(--hex-l)}
+.d-desc .t-scalehealth,.d-desc .t-healing{color:var(--hp)}
+.d-desc .t-scalearmor,.d-desc .t-physicaldamage{color:var(--phys)}
+.d-desc .t-scalemr,.d-desc .t-magicdamage{color:var(--magic)}
+.d-desc .t-truedamage{color:var(--true);font-weight:600}
+.d-desc .t-shield{color:#a8c6d8}
+.d-desc .t-keyword,.d-desc .t-status{color:#ffd37a}
+.d-desc .t-rules{color:var(--dim);font-style:italic}
+.d-into{display:flex;gap:4px;flex-wrap:wrap}
+.d-into button{background:none;border:none;padding:0}
+.d-into img{width:30px;height:30px;border:1px solid var(--gold-d)}
+.d-actions{display:flex;gap:6px;margin-top:auto;flex-wrap:wrap}
+.btn{border:1px solid var(--gold-d);background:linear-gradient(180deg,#1e2328,#0d1117);color:var(--gold-b);font-family:var(--f-display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:11px;padding:7px 14px}
+.btn:hover:not(:disabled){border-color:var(--gold);box-shadow:0 0 8px rgba(200,170,110,.35)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.hex{border-color:var(--hex);color:var(--hex-l);background:linear-gradient(180deg,#0d3443,#041c26)}
+.btn.small{padding:4px 9px;font-size:10px}
+.d-note{font-size:11px;color:var(--warn);min-height:1em}
+.d-ehp{font-size:11.5px;background:var(--well);border:1px solid var(--line);padding:6px 8px}
+.d-ehp b{color:var(--hp)}
+
+.shop-bottom{display:flex;align-items:center;gap:12px;padding:10px;border-top:1px solid var(--line2);flex-wrap:wrap;background:rgba(1,10,19,.6)}
+.inv{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.slot{width:46px;height:46px;border:1px solid var(--line2);background:var(--well);padding:0;position:relative;display:block}
+.slot img{width:100%;height:100%;display:block}
+.slot.sel{border-color:var(--hex);box-shadow:0 0 0 1px var(--hex)}
+.slot.trinket{border-radius:50%;overflow:hidden;width:40px;height:40px;margin-left:6px}
+.slot:not(:empty):hover{border-color:var(--gold)}
+.buff{display:flex;align-items:center;gap:6px;font-size:11px}
+.buff img{width:26px;height:26px;border:1px solid var(--hp)}
+.goldbox{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end}
+.goldbox .v{font-size:18px;color:var(--gold-num);font-weight:700}
+
+/* ---------------- SIDE PANEL ---------------- */
+.side{display:flex;flex-direction:column;gap:14px}
+.champ-card{display:flex;gap:12px;align-items:center}
+.portrait{width:64px;height:64px;border:2px solid var(--gold);background:#000;padding:0;flex:none;position:relative}
+.portrait img{width:100%;height:100%;display:block}
+.portrait .lv{position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);background:var(--void);border:1px solid var(--gold);color:var(--gold-b);font-size:11px;padding:0 6px;font-weight:700}
+.ctl{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center}
+.ctl input[type=range]{width:100%;accent-color:var(--gold)}
+.ctl .v{color:var(--text-b);min-width:3.5em;text-align:right}
+.inp{background:var(--well);border:1px solid var(--line2);padding:3px 6px;width:5em;color:var(--text-b)}
+select.inp{width:auto;max-width:100%}
+.check{display:flex;align-items:center;gap:6px;font-size:12px}
+.check input{accent-color:var(--hex)}
+.ehp-big{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.ehp-cell{background:var(--well);border:1px solid var(--line);padding:8px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ehp-cell .v{font-size:19px;font-weight:700;color:var(--text-b)}
+.ehp-cell.p{border-top:2px solid var(--phys)} .ehp-cell.m{border-top:2px solid var(--magic)} .ehp-cell.x{border-top:2px solid var(--gold)}
+.ehp-draft{background:linear-gradient(90deg,rgba(10,200,185,.12),transparent);border:1px solid var(--hex-d);padding:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:6px}
+.ehp-draft .v{font-size:26px;color:var(--hex-l);font-weight:700}
+.statline{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.statline div{display:flex;flex-direction:column}
+.statline b{font-size:15px;color:var(--text-b)}
+.statline small{color:var(--dim);font-size:10.5px}
+.hp-c{color:var(--hp)!important}.ar-c{color:var(--phys)!important}.mr-c{color:var(--magic)!important}
+.subtle{color:var(--dim);font-size:11px}
+.stack-panel{border:1px solid var(--line2);background:var(--well);padding:10px;display:flex;flex-direction:column;gap:8px}
+.stack-out{font-size:12px;color:var(--text)}
+.stack-out b{color:var(--hp);font-size:16px}
+.runes{display:flex;flex-direction:column;gap:6px}
+.rune{display:flex;align-items:center;gap:8px;font-size:12px}
+.rune img{width:24px;height:24px;border-radius:50%;border:1px solid var(--gold-d)}
+.rune input[type=checkbox]{accent-color:var(--hex)}
+details.box>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center}
+details.box>summary::-webkit-details-marker{display:none}
+details.box>summary::after{content:"+";color:var(--gold);font-weight:700}
+details.box[open]>summary::after{content:"–"}
+
+/* ---------------- DRAFT ---------------- */
+.draft-slots{display:flex;gap:10px;flex-wrap:wrap}
+.eslot{width:74px;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;padding:0}
+.eslot .pic{width:64px;height:64px;border:1px solid var(--bad);background:var(--well);display:grid;place-items:center;color:var(--dim);font-size:24px;position:relative}
+.eslot .pic img{width:100%;height:100%;display:block}
+.eslot span{font-size:11px;color:var(--text-b);max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eslot:hover .pic{box-shadow:0 0 10px rgba(232,64,87,.5)}
+.eslot .x{position:absolute;top:-6px;right:-6px;width:18px;height:18px;border-radius:50%;background:var(--void);border:1px solid var(--bad);color:var(--bad);font-size:12px;line-height:15px}
+.team-bar{display:flex;height:18px;border:1px solid var(--line2);overflow:hidden;margin:4px 0}
+.team-bar div{height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#06121f;min-width:0;overflow:hidden;white-space:nowrap}
+.bp{background:var(--phys)}.bm{background:var(--magic)}.bt{background:var(--true)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px}
+.legend i{display:inline-block;width:9px;height:9px;margin-right:5px;vertical-align:0}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{border:1px solid var(--line2);padding:4px 8px;font-size:11.5px;background:var(--well);display:flex;gap:6px;align-items:center}
+.tag b{color:var(--text-b);font-weight:600}
+.tag.hi{border-color:var(--warn)} .tag.hi b{color:var(--warn)}
+.tag.ok{border-color:var(--hex-d)}
+.tag .sug{color:var(--hex-l)}
+.tbl-wrap{overflow-x:auto;max-width:100%}
+table.et{border-collapse:collapse;width:100%;min-width:760px;font-size:12px}
+.et th{font-weight:600;text-align:left;color:var(--gold);font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;padding:6px 8px;border-bottom:1px solid var(--line2)}
+.et td{padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.et td.n{text-align:right}
+.et .who{display:flex;align-items:center;gap:8px;color:var(--text-b)}
+.et .who img{width:28px;height:28px;border:1px solid var(--line2)}
+.mini{display:flex;height:8px;width:120px;border:1px solid var(--line)}
+.mini div{height:100%}
+.chips{display:flex;gap:3px;flex-wrap:wrap}
+.chip{font-size:10px;border:1px solid var(--line2);padding:0 5px;color:var(--text)}
+.chip.w{border-color:var(--warn);color:var(--warn)}
+.bimg{display:flex;gap:2px}
+.bimg img{width:20px;height:20px;border:1px solid var(--line2)}
+.bimg img.on{border-color:var(--gold)}
+.bimg img.off{opacity:.35}
+
+/* ---------------- CHART + SUGGESTIONS ---------------- */
+.row3{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:1000px){.row3{grid-template-columns:1fr}}
+.chart-box{position:relative}
+.chart-box svg{width:100%;height:auto;display:block}
+.chart-box .tip{position:absolute;pointer-events:none;background:rgba(1,10,19,.95);border:1px solid var(--gold-d);padding:6px 8px;font-size:11px;color:var(--text-b);white-space:nowrap;transform:translate(-50%,-115%)}
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.vcard{border:1px solid var(--line2);background:var(--well);padding:8px 10px}
+.vcard.win{border-color:var(--hp);box-shadow:inset 0 0 0 1px rgba(63,191,127,.25)}
+.vcard .v{font-size:18px;font-weight:700;color:var(--text-b)}
+.vcard.win .v{color:var(--hp)}
+.say{margin:10px 0 0;color:var(--text-b);font-size:13px;max-width:75ch}
+.sugg{display:flex;flex-direction:column;gap:4px}
+.srow{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:8px;align-items:center;background:none;border:1px solid transparent;border-bottom:1px solid var(--line);padding:5px 4px;text-align:left;width:100%}
+.srow:hover{border-color:var(--gold-d);background:rgba(200,170,110,.05)}
+.srow img{width:32px;height:32px;border:1px solid var(--gold-d)}
+.srow .nm{color:var(--text-b);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.srow .bar{height:4px;background:var(--hp);margin-top:3px}
+.srow .r{text-align:right;font-size:12px}
+.srow .r b{color:var(--hp)}
+.foot{color:var(--dim);font-size:11px;max-width:110ch;line-height:1.6}
+.foot b{color:var(--text)}
+
+/* ---------------- PICKER ---------------- */
+.overlay{position:fixed;inset:0;background:rgba(1,10,19,.8);z-index:50;display:grid;place-items:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.picker{width:min(820px,100%);max-height:min(640px,100%);display:flex;flex-direction:column}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));gap:8px;padding:12px 14px;overflow-y:auto}
+.pc{background:none;border:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:10px;color:var(--text);min-width:0}
+.pc img{width:52px;height:52px;border:1px solid var(--line2)}
+.pc:hover img{border-color:var(--gold)}
+.pc span{max-width:62px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc.taken{opacity:.3}
+.loading{padding:60px;text-align:center;font-family:var(--f-display);color:var(--gold);letter-spacing:.1em}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap" id="app">
+  <header class="topbar">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap">
+      <h1>Rift EHP Shop</h1><span class="patch num" id="patch">PATCH …</span>
+    </div>
+    <p>Build like in the in-game shop. Right-click (or double-click) an item to buy it, right-click an inventory slot to sell it. Draft the enemy team to see effective health against what they actually deal.</p>
+  </header>
+  <div class="loading" id="loading">Loading shop data…</div>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="frame picker" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+    <div class="frame-h"><h2 id="pickTitle">Pick a champion</h2>
+      <div class="search" style="flex:1 1 220px"><input id="pickSearch" placeholder="Search champions" autocomplete="off"></div>
+      <button class="btn small" id="pickClose">Close</button></div>
+    <div class="pgrid" id="pgrid"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => Math.round(n).toLocaleString('en-US');
+const pct = (n, d = 0) => (n * 100).toFixed(d) + '%';
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const store = {
+  get(k){ try { return JSON.parse(localStorage.getItem('ehp:' + k)); } catch(e){ return null; } },
+  set(k, v){ try { localStorage.setItem('ehp:' + k, JSON.stringify(v)); } catch(e){} }
+};
+
+let D; // data
+const S = { // state
+  tab: 'all', filter: null, search: '', sel: null, selInv: null,
+  inv: [null,null,null,null,null,null], trinket: '3340', elixir: null, undo: [],
+  champ: 'Sion', minute: 25, autoLevel: true, level: 14,
+  cspm: 7, autoTd: true, takedowns: 6, sionOn: true,
+  hsAuto: true, hsHp: 0,
+  shardFlex: 'hpscale', shardDef: 'hp',
+  keystone: 'grasp', graspAuto: true, grasp: 30, aftershock: false,
+  conditioning: true, overgrowth: true, unflinching: false,
+  jaksho: true, fon: false,
+  enemies: ['Darius','LeeSin','Ahri','Jinx','Leona'], exampleTeam: true,
+  pickFor: null,
+};
+
+/* ====================================================== ITEM MODEL */
+const GOLD_HP = 400 / 150; // Ruby Crystal, replaced from data on load
+let GOLD_AR = 300 / 15, GOLD_MR = 400 / 20;
+
+function prepItems(){
+  for (const it of Object.values(D.items)){
+    const st = { hp:0, armor:0, mr:0, armorpen:0, lethality:0, magicpenPct:0, magicpen:0, crit:0, critdmg:0, as:0 };
+    for (const s of it.stats){
+      if (s.key === 'hp' && !s.pct) st.hp += s.v;
+      else if (s.key === 'armor') st.armor += s.v;
+      else if (s.key === 'mr') st.mr += s.v;
+      else if (s.key === 'armorpen') st.armorpen = s.v / 100;
+      else if (s.key === 'lethality') st.lethality += s.v;
+      else if (s.key === 'magicpen') { if (s.pct) st.magicpenPct = s.v / 100; else st.magicpen += s.v; }
+      else if (s.key === 'crit') st.crit += s.v / 100;
+      else if (s.key === 'critdmg') st.critdmg += s.v / 100;
+      else if (s.key === 'as') st.as += s.v / 100;
+    }
+    const txt = it.desc.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+    const fx = {};
+    let m;
+    if ((m = txt.match(/damage from Attacks by (\d+)%/))) fx.aaRed = +m[1] / 100;
+    if ((m = txt.match(/(\d+)% less damage from Critical Strikes/))) fx.critRed = +m[1] / 100;
+    if ((m = txt.match(/Health equal to (\d+)% of your Item Health/))) fx.warmog = +m[1] / 100;
+    if ((m = txt.match(/increase your bonus Armor and Magic Resist by (\d+)%/))) fx.jaksho = +m[1] / 100;
+    if ((m = txt.match(/Gain (\d+) Magic Resist .{0,60}after taking magic damage/))) fx.fon = +m[1];
+    if ((m = txt.match(/Armor by (\d+)% .{0,40}stacks (\d+) times/))) fx.shred = (+m[1] / 100) * (+m[2]);
+    if ((m = txt.match(/Dark Attacks grant (\d+)% Armor Penetration and Magic Penetration/))) fx.terminus = +m[1] / 200; // every other attack
+    if (it.cat === 'consumable' && (m = txt.match(/Grants (\d+) Health/))) { fx.elixirHp = +m[1]; }
+    if (/Colossal Consumption/.test(txt)) fx.heartsteel = true;
+    if (/Giant Slayer|max(imum)? Health as bonus|current Health as bonus|enemy's current Health|of their maximum Health|max Health magic damage/i.test(txt)) fx.pctHp = true;
+    if (/Wounds/.test(txt)) fx.gw = true;
+    it.st = st; it.fx = fx;
+    it.isElixir = it.cat === 'consumable' && /^Elixir/.test(it.name);
+    it.unique = it.cat === 'legendary' || it.cat === 'boots' && it.depth >= 3;
+    it.defensive = st.hp > 0 || st.armor > 0 || st.mr > 0 || fx.aaRed || fx.critRed;
+  }
+  const ruby = D.items['1028'], cloth = D.items['1029'], mantle = D.items['1033'];
+  if (ruby && ruby.st.hp) GOLD_HP2 = ruby.gold / ruby.st.hp;
+  if (cloth && cloth.st.armor) GOLD_AR = cloth.gold / cloth.st.armor;
+  if (mantle && mantle.st.mr) GOLD_MR = mantle.gold / mantle.st.mr;
+}
+let GOLD_HP2 = GOLD_HP;
+
+/* ====================================================== CHAMPION / ENEMY MODEL */
+const growth = (base, per, lvl) => base + per * (lvl - 1) * (0.7025 + 0.0175 * (lvl - 1));
+const LEVEL_BY_MIN = [1,1,2,3,4,5,5,6,7,7,8,9,9,10,10,11,11,12,12,13,13,13,14,14,15,15,16,16,16,17,17,17,18];
+const levelFor = min => LEVEL_BY_MIN[clamp(Math.floor(min), 0, LEVEL_BY_MIN.length - 1)];
+const DOUBLE_CRIT = new Set(['Yasuo','Yone']);
+
+function enemyProfile(cid, minute){
+  const c = D.champs[cid];
+  const d = c.dmg || { p: 1, m: 1, t: 0 };
+  const total = d.p + d.m + d.t || 1;
+  const sp = d.p / total, sm = d.m / total, st = d.t / total;
+  const build = c.build.map(id => D.items[id]).filter(Boolean);
+  const boots = build.find(i => i.cat === 'boots');
+  const legs = build.filter(i => i.cat !== 'boots');
+  const nLeg = minute < 13 ? 0 : Math.min(5, 1 + Math.floor((minute - 13) / 6.5));
+  const owned = legs.slice(0, nLeg);
+  if (boots && minute >= 9) owned.push(boots);
+  const core = legs.slice(0, 4);
+  let armorPenKeep = 1, shred = 0, leth = 0, mpKeep = 1, mpFlat = 0, crit = 0, critdmg = 0;
+  for (const it of owned){
+    armorPenKeep *= 1 - it.st.armorpen - (it.fx.terminus || 0);
+    mpKeep *= 1 - it.st.magicpenPct - (it.fx.terminus || 0);
+    shred = Math.max(shred, it.fx.shred || 0);
+    leth += it.st.lethality; mpFlat += it.st.magicpen;
+    crit += it.st.crit; critdmg += it.st.critdmg;
+  }
+  if (DOUBLE_CRIT.has(cid)) crit *= 2;
+  crit = Math.min(1, crit);
+  const aaItems = core.filter(i => i.tags.some(t => t === 'CriticalStrike' || t === 'AttackSpeed' || t === 'OnHit')).length;
+  const marks = c.tags.includes('Marksman') || c.roles.includes('MARKSMAN');
+  let aa = 0.04 + 0.12 * sp + 0.1 * aaItems + (marks ? 0.25 : 0) + (c.ranged && !marks && sm < 0.5 ? 0.04 : 0);
+  aa = Math.min(aa, 0.82, sp + st * 0.6);
+  const pctHp = c.pctHp.length > 0 || core.some(i => i.fx.pctHp);
+  const anyPen = armorPenKeep < 0.999 || shred > 0 || leth > 0;
+  return { cid, c, total, sp, sm, st, owned, core, build, nLeg,
+    armorPen: 1 - armorPenKeep, shred, leth, magicPen: 1 - mpKeep, mpFlat,
+    crit, critMult: 1.75 + critdmg, aa, pctHp, anyPen,
+    gw: core.some(i => i.fx.gw) };
+}
+
+function resMult(r){ return r >= 0 ? 100 / (100 + r) : 2 - 100 / (100 - r); }
+
+/* multiplier of raw damage this enemy actually deals to you (lower = tankier) */
+function damageMult(p, me){
+  const ar = Math.max(0, me.armor * (1 - p.shred) * (1 - p.armorPen) - p.leth);
+  const arEff = me.armor < 0 ? me.armor : ar;
+  const mrEff = me.mr < 0 ? me.mr : Math.max(0, me.mr * (1 - p.magicPen) - p.mpFlat);
+  const a = Math.min(p.aa, p.sp);
+  const f = p.crit > 0 ? (p.crit * p.critMult) / (1 - p.crit + p.crit * p.critMult) : 0; // share of AA damage from crits
+  const critAdj = (1 - f) + f * (1 - me.critRed);
+  const physTerm = resMult(arEff) * ((p.sp - a) + a * (1 - me.aaRed) * critAdj);
+  return { mult: physTerm + p.sm * resMult(mrEff) + p.st, arEff, mrEff };
+}
+
+/* ====================================================== SION STACKS */
+function cannonShare(minute){
+  let minions = 0, cannons = 0, i = 0;
+  for (let t = 0.5; t <= Math.max(0.5, minute - 0.5); t += 0.5){
+    i++; minions += 6;
+    if ((t < 15 && i % 3 === 0) || (t >= 15 && t < 25 && i % 2 === 0) || t >= 25) cannons++;
+  }
+  return cannons / Math.max(1, minions + cannons);
+}
+function sionStacks(){
+  const cs = S.cspm * S.minute;
+  const large = cs * cannonShare(S.minute);
+  const small = cs - large;
+  const td = S.autoTd ? Math.round(S.minute * 0.25) : S.takedowns;
+  return { cs, small, large, td, hp: 4 * small + 15 * (large + td) };
+}
+
+/* ====================================================== MY STATS */
+function myStats(opts = {}){
+  const inv = opts.inv || S.inv;
+  const c = D.champs[S.champ].s;
+  const lvl = S.autoLevel ? levelFor(S.minute) : S.level;
+  const baseHp = growth(c.hp, c.hpperlevel, lvl);
+  const baseAr = growth(c.armor, c.armorperlevel, lvl);
+  const baseMr = growth(c.spellblock, c.spellblockperlevel, lvl);
+  let itemHp = 0, bAr = 0, bMr = 0, aaRed = 0, critRed = 0, warmog = 0, jak = 0, fon = 0, hasHs = false;
+  const items = inv.filter(Boolean).map(id => D.items[id]);
+  for (const it of items){
+    itemHp += it.st.hp; bAr += it.st.armor; bMr += it.st.mr;
+    aaRed = Math.max(aaRed, it.fx.aaRed || 0);
+    critRed = Math.max(critRed, it.fx.critRed || 0);
+    warmog = Math.max(warmog, it.fx.warmog || 0);
+    jak = Math.max(jak, it.fx.jaksho || 0);
+    fon = Math.max(fon, it.fx.fon || 0);
+    if (it.fx.heartsteel) hasHs = true;
+  }
+  let bonusHp = itemHp * (1 + warmog);
+  const parts = [];
+  if (S.elixir) { const e = D.items[S.elixir]; if (e.fx.elixirHp){ bonusHp += e.fx.elixirHp; parts.push(['Elixir', e.fx.elixirHp]); } }
+  const shardHpScale = 10 + 10 * (lvl - 1);
+  if (S.shardFlex === 'hpscale') { bonusHp += shardHpScale; }
+  if (S.shardDef === 'hp') bonusHp += 65; else if (S.shardDef === 'hpscale') bonusHp += shardHpScale;
+  let sion = null;
+  if (S.champ === 'Sion' && S.sionOn) { sion = sionStacks(); bonusHp += sion.hp; }
+  let grasp = 0;
+  if (S.keystone === 'grasp') { const procs = S.graspAuto ? Math.round(S.minute * 1.2) : S.grasp; grasp = procs * (D.champs[S.champ].ranged ? 2 : 5); bonusHp += grasp; }
+  let og = 0, ogPct = 0;
+  if (S.overgrowth) { const absorbed = Math.max(0, (S.minute - 1.5) * 13 * 0.85); og = 3 * Math.floor(absorbed / 8); bonusHp += og; ogPct = absorbed >= 120 ? 0.035 : 0; }
+  let hs = 0;
+  if (hasHs) {
+    if (S.hsAuto) {
+      const procs = Math.max(0, (S.minute - 11) * 1.1);
+      let hp = baseHp + bonusHp;
+      for (let i = 0; i < procs; i++){ const g = 0.08 * (70 + 0.06 * hp); hs += g; hp += g; }
+    } else hs = S.hsHp;
+    bonusHp += hs;
+  }
+  let hp = (baseHp + bonusHp) * (1 + ogPct);
+  // resistances
+  if (S.conditioning && S.minute >= 12) { bAr += 8; bMr += 8; }
+  if (S.unflinching) { bAr += 10; bMr += 10; }
+  if (fon && S.fon) bMr += fon;
+  if (jak && S.jaksho) { bAr *= 1 + jak; bMr *= 1 + jak; }
+  if (S.keystone === 'aftershock' && S.aftershock) {
+    const cap = 80 + (70 / 17) * (lvl - 1);
+    bAr += Math.min(cap, 45 + 0.75 * bAr); bMr += Math.min(cap, 45 + 0.75 * bMr);
+  }
+  let armor = baseAr + bAr, mr = baseMr + bMr;
+  if (S.conditioning && S.minute >= 12) { armor *= 1.03; mr *= 1.03; }
+  if (opts.addHp) hp += opts.addHp;
+  if (opts.addAr) armor += opts.addAr;
+  if (opts.addMr) mr += opts.addMr;
+  return { lvl, hp, armor, mr, baseHp, baseAr, baseMr, bonusHp: hp - baseHp, aaRed, critRed, sion, grasp, og, ogPct, hs, hasHs, jak, fon, items };
+}
+
+const ehpPhys = me => me.hp / resMult(me.armor);
+const ehpMag = me => me.hp / resMult(me.mr);
+const ehpMix = me => me.hp / (0.5 * resMult(me.armor) + 0.5 * resMult(me.mr));
+
+function teamProfiles(){ return S.enemies.filter(Boolean).map(cid => enemyProfile(cid, S.minute)); }
+function teamMult(me, profs){
+  if (!profs.length) return 0.5 * resMult(me.armor) + 0.5 * resMult(me.mr);
+  let w = 0, m = 0;
+  for (const p of profs){ m += p.total * damageMult(p, me).mult; w += p.total; }
+  return m / w;
+}
+const ehpTeam = (me, profs) => me.hp / teamMult(me, profs);
+
+/* best split of G gold between armor and MR vs. the draft */
+function bestResist(me, profs, G){
+  let best = null;
+  for (let s = 0; s <= 1.0001; s += 0.02){
+    const t = { ...me, armor: me.armor + G * s / GOLD_AR, mr: me.mr + G * (1 - s) / GOLD_MR };
+    const e = ehpTeam(t, profs);
+    if (!best || e > best.ehp) best = { ehp: e, split: s, me: t };
+  }
+  return best;
+}
+
+/* ====================================================== RENDER: SKELETON */
+const FILTERS = [
+  ['Health', '1028', t => t.includes('Health')],
+  ['Armor', '1029', t => t.includes('Armor')],
+  ['Magic Resist', '1033', t => t.includes('SpellBlock') || t.includes('MagicResist')],
+  ['Attack Damage', '1036', t => t.includes('Damage')],
+  ['Critical Strike', '1018', t => t.includes('CriticalStrike')],
+  ['Attack Speed', '1042', t => t.includes('AttackSpeed')],
+  ['On-Hit', '1043', t => t.includes('OnHit')],
+  ['Armor Penetration', '3134', t => t.includes('ArmorPenetration')],
+  ['Ability Power', '1052', t => t.includes('SpellDamage')],
+  ['Mana & Regen', '1027', t => t.includes('Mana') || t.includes('ManaRegen')],
+  ['Magic Penetration', '4630', t => t.includes('MagicPenetration')],
+  ['Ability Haste', '3067', t => t.includes('AbilityHaste') || t.includes('CooldownReduction')],
+  ['Movement', '1001', t => t.includes('Boots') || t.includes('NonbootsMovement')],
+  ['Life Steal & Vamp', '1053', t => t.includes('LifeSteal') || t.includes('SpellVamp')],
+];
+const SECTIONS = [
+  ['starter', 'Starter Items'], ['consumable', 'Potions & Consumables'], ['trinket', 'Trinkets'], ['boots', 'Boots'],
+  ['basic', 'Basic Items'], ['epic', 'Epic Items'], ['legendary', 'Legendary Items'],
+];
+
+function buildLayout(){
+  $('#loading').remove();
+  $('#patch').textContent = 'PATCH ' + D.version;
+  const app = $('#app');
+  app.insertAdjacentHTML('beforeend', `
+  <div class="row1">
+    <section class="frame shop" aria-label="Item shop">
+      <div class="shop-top" role="tablist">
+        <button class="tab" role="tab" data-tab="all" id="tab-all">All Items</button>
+        <button class="tab" role="tab" data-tab="best" id="tab-best">Best vs Draft</button>
+        <label class="search"><span class="subtle" aria-hidden="true">⌕</span><input id="search" placeholder="Search items" autocomplete="off"></label>
+      </div>
+      <div class="shop-body">
+        <nav class="filters" id="filters" aria-label="Stat filters"></nav>
+        <div class="grid-wrap" id="grid"></div>
+        <aside class="detail" id="detail"></aside>
+      </div>
+      <div class="shop-bottom">
+        <div class="inv" id="inv"></div>
+        <div class="buff" id="buff"></div>
+        <button class="btn small" id="sellBtn" disabled>Sell</button>
+        <button class="btn small" id="undoBtn" disabled>Undo</button>
+        <button class="btn small" id="clearBtn">Clear</button>
+        <div class="goldbox"><span class="lbl">Build cost</span><span class="v num" id="goldTotal">0</span></div>
+      </div>
+    </section>
+    <aside class="side">
+      <section class="frame">
+        <div class="frame-h"><h2>Your champion</h2><span class="subtle" id="lvlNote"></span></div>
+        <div class="pad" style="display:flex;flex-direction:column;gap:12px">
+          <div class="champ-card">
+            <button class="portrait" id="myChamp" title="Change champion"></button>
+            <div style="flex:1;min-width:0" class="ctl">
+              <label class="lbl" for="minute">Minute</label><input type="range" id="minute" min="0" max="45" step="1"><span class="v num" id="minuteV"></span>
+              <label class="lbl" for="level">Level</label><input type="range" id="level" min="1" max="18" step="1"><span class="v num" id="levelV"></span>
+              <span></span><label class="check" style="grid-column:2/4"><input type="checkbox" id="autoLevel"> Level from minute (solo lane)</label>
+            </div>
+          </div>
+          <div id="sionBox"></div>
+          <div>
+            <div class="ehp-big">
+              <div class="ehp-cell p"><span class="lbl">Full physical</span><span class="v num" id="eP"></span></div>
+              <div class="ehp-cell m"><span class="lbl">Full magic</span><span class="v num" id="eM"></span></div>
+              <div class="ehp-cell x"><span class="lbl">50 / 50 mixed</span><span class="v num" id="eX"></span></div>
+            </div>
+            <div class="ehp-draft"><div><span class="lbl">EHP vs this draft</span><div class="subtle" id="eDnote"></div></div><span class="v num" id="eD"></span></div>
+            <div class="statline">
+              <div><small>Health</small><b class="num hp-c" id="sHp"></b><small class="num" id="sHp2"></small></div>
+              <div><small>Armor</small><b class="num ar-c" id="sAr"></b><small class="num" id="sAr2"></small></div>
+              <div><small>Magic resist</small><b class="num mr-c" id="sMr"></b><small class="num" id="sMr2"></small></div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="frame">
+        <details class="box pad" open><summary><h2>Runes &amp; effects</h2></summary>
+          <div class="runes" id="runes" style="margin-top:10px"></div>
+        </details>
+      </section>
+    </aside>
+  </div>
+
+  <section class="frame" aria-label="Enemy draft">
+    <div class="frame-h"><h2>Enemy draft</h2><span class="subtle" id="draftNote"></span></div>
+    <div class="pad" style="display:flex;flex-direction:column;gap:12px">
+      <div style="display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start">
+        <div class="draft-slots" id="slots"></div>
+        <div style="flex:1;min-width:240px;display:flex;flex-direction:column;gap:6px">
+          <span class="lbl">Team damage profile (Lolalytics avg. damage per game)</span>
+          <div class="team-bar" id="teamBar"></div>
+          <div class="legend"><span><i class="bp"></i>Physical</span><span><i class="bm"></i>Magic</span><span><i class="bt"></i>True</span><span class="subtle" id="teamAA"></span></div>
+          <div class="tags" id="threats"></div>
+        </div>
+      </div>
+      <div class="tbl-wrap"><table class="et" id="etable"></table></div>
+    </div>
+  </section>
+
+  <div class="row3">
+    <section class="frame">
+      <div class="frame-h"><h2>Health vs resistances</h2><span class="subtle">Resistances bought in the ideal armor / MR split against this draft</span></div>
+      <div class="pad">
+        <div class="chart-box" id="chart"></div>
+        <div class="verdict" id="verdict"></div>
+        <p class="say" id="say"></p>
+      </div>
+    </section>
+    <section class="frame">
+      <div class="frame-h"><h2>Best defensive buys</h2><span class="subtle">EHP vs draft per 1000 gold</span></div>
+      <div class="pad sugg" id="sugg"></div>
+    </section>
+  </div>
+  <p class="foot" id="foot"></p>`);
+
+  // filters
+  $('#filters').innerHTML = `<button class="fbtn all" data-f="" aria-pressed="true" title="All items">ALL</button>` +
+    FILTERS.map(([n, id], i) => `<button class="fbtn" data-f="${i}" aria-pressed="false" title="${esc(n)}"><img alt="${esc(n)}" src="${D.items[id] ? D.items[id].icon : ''}"></button>`).join('');
+  wire();
+}
+
+/* ====================================================== SHOP */
+function itemMatches(it){
+  if (S.filter != null && !FILTERS[S.filter][2](it.tags)) return false;
+  if (S.search){
+    const q = S.search.toLowerCase();
+    if (!it.name.toLowerCase().includes(q) && !(it.plain || '').toLowerCase().includes(q)) return false;
+  }
+  return true;
+}
+function tileHtml(it, extra = ''){
+  const owned = S.inv.includes(it.id) || S.trinket === it.id || S.elixir === it.id;
+  const block = buyCheck(it.id).err ? ' blocked' : '';
+  return `<button class="it${S.sel === it.id ? ' sel' : ''}${owned ? ' owned' : ''}${block}" data-id="${it.id}" title="${esc(it.name)}">
+    <span class="ic"><img alt="" src="${it.icon}" loading="lazy">${extra}</span><span class="g num">${it.gold}</span></button>`;
+}
+function renderShop(){
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === S.tab));
+  document.querySelectorAll('.fbtn').forEach(b => b.setAttribute('aria-pressed', (b.dataset.f === '' ? S.filter == null : +b.dataset.f === S.filter)));
+  const g = $('#grid');
+  if (S.tab === 'best'){
+    const list = rankItems().filter(r => itemMatches(r.it)).slice(0, 40);
+    g.innerHTML = `<div class="sec-h">Most EHP vs your draft per 1000 gold</div>
+      <div class="igrid">${list.map(r => tileHtml(r.it, `<span class="badge num">+${fmt(r.per1k)}</span>`)).join('') || '<p class="empty-note">No defensive items match.</p>'}</div>
+      <p class="subtle" style="margin-top:10px">Green number: EHP gained against the drafted team per 1000 gold spent, if you added the item to your current build.</p>`;
+    return;
+  }
+  let html = '';
+  for (const [cat, title] of SECTIONS){
+    const its = Object.values(D.items).filter(i => i.cat === cat && itemMatches(i)).sort((a, b) => a.gold - b.gold || a.name.localeCompare(b.name));
+    if (!its.length) continue;
+    html += `<div class="sec-h">${title}</div><div class="igrid">${its.map(i => tileHtml(i)).join('')}</div>`;
+  }
+  g.innerHTML = html || '<p class="empty-note">No items match that search.</p>';
+}
+
+function descHtml(desc){
+  return desc.replace(/<(\/?)([a-zA-Z]+)[^>]*>/g, (m, close, tag) => {
+    tag = tag.toLowerCase();
+    if (tag === 'br') return '<br>';
+    if (tag === 'li') return close ? '' : '<br>• ';
+    if (tag === 'maintext') return '';
+    return close ? '</span>' : `<span class="t-${tag}">`;
+  });
+}
+function treeHtml(id, root, depth = 0){
+  const it = D.items[id];
+  if (!it) return '';
+  const kids = depth < 2 ? it.from : [];
+  const have = !root && S.inv.includes(id);
+  return `<div class="node"><button class="nb${root ? ' root' : ''}${have ? ' have' : ''}" data-id="${id}" title="${esc(it.name)}"><img alt="${esc(it.name)}" src="${it.icon}"><span class="num">${it.gold}</span></button>
+    ${kids.length ? `<div class="kids">${kids.map(k => treeHtml(k, false, depth + 1)).join('')}</div>` : ''}</div>`;
+}
+function renderDetail(){
+  const box = $('#detail');
+  const it = S.sel && D.items[S.sel];
+  if (!it){ box.innerHTML = '<p class="subtle">Select an item to see its recipe and stats.</p>'; return; }
+  const chk = buyCheck(it.id);
+  let ehpLine = '';
+  if (it.defensive && !it.isElixir){
+    const profs = teamProfiles();
+    const now = ehpTeam(myStats(), profs);
+    const inv2 = S.inv.filter(x => x).concat(it.id);
+    const after = ehpTeam(myStats({ inv: inv2 }), profs);
+    ehpLine = `<div class="d-ehp">Adding this: <b class="num">+${fmt(after - now)}</b> EHP vs draft <span class="subtle num">(${fmt(now)} → ${fmt(after)})</span></div>`;
+  }
+  box.innerHTML = `<div class="tree">${treeHtml(it.id, true)}</div>
+    <div><div class="d-name">${esc(it.name)}</div>
+    <div class="d-cost"><span><span class="coin"></span><span class="num">${chk.cost != null && chk.cost !== it.gold ? chk.cost + ' <s class="subtle">' + it.gold + '</s>' : it.gold}</span></span><span class="subtle">Sell ${it.sell}</span></div></div>
+    <div class="d-desc">${descHtml(it.desc)}</div>
+    ${ehpLine}
+    ${it.into.length ? `<div><span class="lbl">Builds into</span><div class="d-into">${it.into.map(i => D.items[i] ? `<button data-id="${i}" title="${esc(D.items[i].name)}"><img alt="${esc(D.items[i].name)}" src="${D.items[i].icon}"></button>` : '').join('')}</div></div>` : ''}
+    <div class="d-note">${chk.err ? esc(chk.err) : ''}</div>
+    <div class="d-actions"><button class="btn hex" id="buyBtn" ${chk.err ? 'disabled' : ''}>Purchase</button></div>`;
+}
+
+/* inventory logic, mirroring the in-game rules */
+function consume(id, inv){ // returns gold credited by components found in inventory
+  let credit = 0;
+  for (const c of D.items[id].from){
+    const idx = inv.indexOf(c);
+    if (idx >= 0){ inv[idx] = null; credit += D.items[c].gold; }
+    else credit += consume(c, inv);
+  }
+  return credit;
+}
+function buyCheck(id){
+  const it = D.items[id];
+  if (it.cat === 'trinket') return { cost: 0 };
+  if (it.isElixir) return { cost: it.gold };
+  const inv = S.inv.slice();
+  const credit = consume(id, inv);
+  const cost = it.gold - credit;
+  const rest = inv.filter(Boolean).map(i => D.items[i]);
+  if (it.unique && rest.some(r => r.id === id)) return { cost, err: 'You already own this item.' };
+  if (it.cat === 'boots' && rest.some(r => r.cat === 'boots')) return { cost, err: 'You can only carry one pair of boots.' };
+  if (it.cat === 'starter' && rest.some(r => r.cat === 'starter')) return { cost, err: 'Only one starter item at a time.' };
+  if (!inv.includes(null)) return { cost, err: 'Inventory full. Sell something first.' };
+  return { cost };
+}
+function snapshot(){ S.undo.push(JSON.stringify({ inv: S.inv, trinket: S.trinket, elixir: S.elixir })); if (S.undo.length > 50) S.undo.shift(); }
+function buy(id){
+  const it = D.items[id];
+  const chk = buyCheck(id);
+  if (chk.err) { S.sel = id; renderDetail(); return; }
+  snapshot();
+  if (it.cat === 'trinket') S.trinket = id;
+  else if (it.isElixir) S.elixir = id;
+  else {
+    consume(id, S.inv);
+    S.inv[S.inv.indexOf(null)] = id;
+  }
+  S.exampleBuild = false;
+  update();
+}
+function sell(slot){
+  snapshot();
+  if (slot === 'trinket') S.trinket = null;
+  else if (slot === 'elixir') S.elixir = null;
+  else S.inv[slot] = null;
+  S.selInv = null;
+  update();
+}
+function renderInv(){
+  const slots = S.inv.map((id, i) => `<button class="slot${S.selInv === i ? ' sel' : ''}" data-slot="${i}" aria-label="${id ? esc(D.items[id].name) : 'Empty slot'}" title="${id ? esc(D.items[id].name) : 'Empty'}">${id ? `<img alt="" src="${D.items[id].icon}">` : ''}</button>`).join('');
+  const tr = S.trinket ? D.items[S.trinket] : null;
+  $('#inv').innerHTML = slots + `<button class="slot trinket${S.selInv === 'trinket' ? ' sel' : ''}" data-slot="trinket" title="${tr ? esc(tr.name) : 'Trinket'}">${tr ? `<img alt="" src="${tr.icon}">` : ''}</button>`;
+  const el = S.elixir ? D.items[S.elixir] : null;
+  $('#buff').innerHTML = el ? `<button class="slot" style="width:30px;height:30px" data-slot="elixir" title="${esc(el.name)} (right-click to remove)"><img alt="" src="${el.icon}"></button><span>${esc(el.name)}</span>` : '';
+  const total = S.inv.filter(Boolean).reduce((a, id) => a + D.items[id].gold, 0) + (el ? el.gold : 0);
+  $('#goldTotal').innerHTML = `<span class="coin"></span>${fmt(total)}`;
+  $('#sellBtn').disabled = S.selInv == null;
+  $('#undoBtn').disabled = !S.undo.length;
+}
+
+/* ====================================================== SIDE PANEL */
+function renderSide(me, profs){
+  const ch = D.champs[S.champ];
+  $('#myChamp').innerHTML = `<img alt="${esc(ch.name)}" src="${ch.icon}"><span class="lv num">${me.lvl}</span>`;
+  $('#minute').value = S.minute; $('#minuteV').textContent = S.minute + ':00';
+  $('#level').value = me.lvl; $('#level').disabled = S.autoLevel; $('#levelV').textContent = 'Lv ' + me.lvl;
+  $('#autoLevel').checked = S.autoLevel;
+  $('#lvlNote').textContent = ch.name;
+  $('#eP').textContent = fmt(ehpPhys(me));
+  $('#eM').textContent = fmt(ehpMag(me));
+  $('#eX').textContent = fmt(ehpMix(me));
+  $('#eD').textContent = profs.length ? fmt(ehpTeam(me, profs)) : '–';
+  $('#eDnote').textContent = profs.length ? `${pct(1 - teamMult(me, profs), 1)} of their damage mitigated` : 'Draft enemies below';
+  $('#sHp').textContent = fmt(me.hp); $('#sHp2').textContent = `${fmt(me.baseHp)} base + ${fmt(me.bonusHp)}`;
+  $('#sAr').textContent = fmt(me.armor); $('#sAr2').textContent = `${pct(1 - resMult(me.armor))} phys. reduction`;
+  $('#sMr').textContent = fmt(me.mr); $('#sMr2').textContent = `${pct(1 - resMult(me.mr))} magic reduction`;
+
+  const box = $('#sionBox');
+  if (S.champ === 'Sion'){
+    const s = me.sion || sionStacks();
+    if (!box.dataset.built){
+      box.dataset.built = 1;
+      box.innerHTML = `<div class="stack-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3>Soul Furnace stacks</h3><label class="check"><input type="checkbox" id="sionOn"> Include</label></div>
+        <div class="ctl">
+          <label class="lbl" for="cspm">CS / min</label><input type="range" id="cspm" min="3" max="11" step="0.5"><span class="v num" id="cspmV"></span>
+          <label class="lbl" for="td">Takedowns</label><input type="range" id="td" min="0" max="40" step="1"><span class="v num" id="tdV"></span>
+          <span></span><label class="check" style="grid-column:2/4"><input type="checkbox" id="autoTd"> Estimate takedowns (0.25 / min)</label>
+        </div>
+        <div class="stack-out" id="stackOut"></div></div>`;
+    }
+    $('#sionOn').checked = S.sionOn;
+    $('#cspm').value = S.cspm; $('#cspmV').textContent = S.cspm.toFixed(1);
+    $('#td').value = s.td; $('#td').disabled = S.autoTd; $('#tdV').textContent = s.td; $('#autoTd').checked = S.autoTd;
+    $('#stackOut').innerHTML = `<b class="num">+${fmt(s.hp)}</b> max health at ${S.minute}:00<br>
+      <span class="subtle num">${fmt(s.cs)} CS → ${fmt(s.small)} small × 4 + ${fmt(s.large)} cannons × 15, ${s.td} takedowns × 15</span>`;
+  } else { box.innerHTML = ''; delete box.dataset.built; }
+  renderRunes(me);
+}
+
+function renderRunes(me){
+  const R = D.runes;
+  const r = (key, inner) => `<div class="rune">${R[key] ? `<img alt="" src="${R[key].icon}" title="${esc(R[key].desc)}">` : ''}${inner}</div>`;
+  const graspProcs = S.graspAuto ? Math.round(S.minute * 1.2) : S.grasp;
+  const items = me.items;
+  const jakItem = items.find(i => i.fx.jaksho), fonItem = items.find(i => i.fx.fon);
+  const html = `
+    <span class="lbl">Keystone</span>
+    <select class="inp" id="keystone"><option value="none">Other keystone</option><option value="grasp">Grasp of the Undying</option><option value="aftershock">Aftershock</option></select>
+    ${S.keystone === 'grasp' ? r('GraspOfTheUndying', `<span>Procs</span><input class="inp num" type="number" id="grasp" min="0" max="400" value="${graspProcs}" ${S.graspAuto ? 'disabled' : ''}><label class="check"><input type="checkbox" id="graspAuto" ${S.graspAuto ? 'checked' : ''}> ~1.2 / min</label><span class="subtle num">+${fmt(me.grasp)} HP</span>`) : ''}
+    ${S.keystone === 'aftershock' ? r('Aftershock', `<label class="check"><input type="checkbox" id="aftershock" ${S.aftershock ? 'checked' : ''}> Aftershock active (2.5 s after you CC)</label>`) : ''}
+    <span class="lbl" style="margin-top:6px">Resolve</span>
+    ${r('Conditioning', `<label class="check"><input type="checkbox" id="conditioning" ${S.conditioning ? 'checked' : ''}> Conditioning <span class="subtle">${S.minute >= 12 ? '+8 / +8, +3%' : '(inactive before 12:00)'}</span></label>`)}
+    ${r('Overgrowth', `<label class="check"><input type="checkbox" id="overgrowth" ${S.overgrowth ? 'checked' : ''}> Overgrowth <span class="subtle num">+${fmt(me.og)} HP${me.ogPct ? ' +3.5%' : ''}</span></label>`)}
+    ${r('Unflinching', `<label class="check"><input type="checkbox" id="unflinching" ${S.unflinching ? 'checked' : ''}> Unflinching (while CC'd)</label>`)}
+    <span class="lbl" style="margin-top:6px">Stat shards</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <select class="inp" id="shardFlex" aria-label="Flex shard"><option value="other">Flex: Adaptive / Move speed</option><option value="hpscale">Flex: Health 10–180</option></select>
+      <select class="inp" id="shardDef" aria-label="Defense shard"><option value="hp">Defense: 65 Health</option><option value="hpscale">Defense: Health 10–180</option><option value="other">Defense: Tenacity</option></select>
+    </div>
+    ${jakItem || fonItem || me.hasHs ? '<span class="lbl" style="margin-top:6px">Item passives</span>' : ''}
+    ${jakItem ? `<div class="rune"><img alt="" src="${jakItem.icon}"><label class="check"><input type="checkbox" id="jaksho" ${S.jaksho ? 'checked' : ''}> Jak'Sho combat bonus (+${pct(jakItem.fx.jaksho)} bonus resists)</label></div>` : ''}
+    ${fonItem ? `<div class="rune"><img alt="" src="${fonItem.icon}"><label class="check"><input type="checkbox" id="fon" ${S.fon ? 'checked' : ''}> Force of Nature stacked (+${fonItem.fx.fon} MR)</label></div>` : ''}
+    ${me.hasHs ? `<div class="rune"><img alt="" src="${D.items['3084'].icon}"><span>Heartsteel</span><input class="inp num" type="number" id="hsHp" min="0" max="3000" value="${Math.round(me.hs)}" ${S.hsAuto ? 'disabled' : ''}><label class="check"><input type="checkbox" id="hsAuto" ${S.hsAuto ? 'checked' : ''}> estimate</label></div>` : ''}
+    <p class="subtle" style="margin:4px 0 0">Plated Steelcaps and Randuin's Omen are applied automatically against the drafted enemies' auto-attacks and crits.</p>`;
+  const box = $('#runes');
+  box.innerHTML = html;
+  $('#keystone').value = S.keystone; $('#shardFlex').value = S.shardFlex; $('#shardDef').value = S.shardDef;
+}
+
+/* ====================================================== DRAFT */
+function renderDraft(me, profs){
+  $('#slots').innerHTML = S.enemies.map((cid, i) => {
+    const c = cid && D.champs[cid];
+    return `<button class="eslot" data-e="${i}" aria-label="${c ? 'Change ' + esc(c.name) : 'Pick enemy ' + (i + 1)}">
+      <span class="pic">${c ? `<img alt="" src="${c.icon}"><span class="x" data-rm="${i}" aria-label="Remove" role="button">×</span>` : '+'}</span><span>${c ? esc(c.name) : 'Enemy ' + (i + 1)}</span></button>`;
+  }).join('');
+  $('#draftNote').textContent = S.exampleTeam ? 'Example team. Click a portrait to change it.' : `${profs.length} enemies at ${S.minute}:00`;
+  if (!profs.length){ $('#teamBar').innerHTML = ''; $('#threats').innerHTML = '<span class="subtle">Pick enemies to see their damage profile.</span>'; $('#etable').innerHTML = ''; return; }
+  const W = profs.reduce((a, p) => a + p.total, 0);
+  const tp = profs.reduce((a, p) => a + p.total * p.sp, 0) / W;
+  const tm = profs.reduce((a, p) => a + p.total * p.sm, 0) / W;
+  const tt = 1 - tp - tm;
+  const taa = profs.reduce((a, p) => a + p.total * p.aa, 0) / W;
+  $('#teamBar').innerHTML = `<div class="bp" style="width:${tp * 100}%">${tp > .08 ? pct(tp) : ''}</div><div class="bm" style="width:${tm * 100}%">${tm > .08 ? pct(tm) : ''}</div><div class="bt" style="width:${tt * 100}%">${tt > .08 ? pct(tt) : ''}</div>`;
+  $('#teamAA').textContent = `~${pct(taa)} of team damage from auto-attacks (estimate)`;
+
+  const tags = [];
+  const names = arr => arr.map(p => p.c.name).join(', ');
+  if (tp >= 0.62) tags.push(['hi', 'Heavy physical', `${pct(tp)} physical`, 'Armor > MR']);
+  else if (tm >= 0.55) tags.push(['hi', 'Heavy magic', `${pct(tm)} magic`, 'MR > Armor']);
+  else tags.push(['ok', 'Mixed damage', `${pct(tp)} / ${pct(tm)}`, 'Health and both resists']);
+  if (tt >= 0.1) tags.push(['hi', 'Lots of true damage', pct(tt), 'Health beats resists']);
+  if (taa >= 0.35) tags.push(['hi', 'Auto-attack heavy', pct(taa) + ' from attacks', 'Plated Steelcaps, Frozen Heart, Thornmail']);
+  const critters = profs.filter(p => p.crit >= 0.4 || p.core.filter(i => i.st.crit > 0).length >= 2);
+  if (critters.length) tags.push(['hi', 'Crit carries', names(critters), "Randuin's Omen"]);
+  const pen = profs.filter(p => p.core.some(i => i.st.armorpen > 0 || i.fx.shred || i.st.lethality > 0));
+  if (pen.length) tags.push([pen.length >= 2 ? 'hi' : '', 'Armor penetration / lethality', names(pen), 'Health keeps value']);
+  const mpen = profs.filter(p => p.core.some(i => i.st.magicpenPct > 0 || i.st.magicpen > 0));
+  if (mpen.length) tags.push(['', 'Magic penetration', names(mpen), 'Health keeps value']);
+  const pcts = profs.filter(p => p.pctHp);
+  if (pcts.length >= 2) tags.push(['hi', '%-health damage', names(pcts), 'Stacking only health is weaker']);
+  else if (pcts.length) tags.push(['', '%-health damage', names(pcts), '']);
+  const gw = profs.filter(p => p.gw);
+  if (gw.length) tags.push(['', 'Grievous Wounds', names(gw), 'Healing reduced']);
+  $('#threats').innerHTML = tags.map(([cls, a, b, s]) => `<span class="tag ${cls}"><b>${esc(a)}</b><span>${esc(b)}</span>${s ? `<span class="sug">→ ${esc(s)}</span>` : ''}</span>`).join('');
+
+  const rows = profs.map(p => {
+    const dm = damageMult(p, me);
+    const ehp = me.hp / dm.mult;
+    const chips = [];
+    if (p.aa >= 0.4) chips.push(['w', 'AA heavy']); else if (p.aa >= 0.2) chips.push(['', 'some AA']);
+    if (p.crit > 0) chips.push([p.crit >= 0.5 ? 'w' : '', `${pct(p.crit)} crit`]);
+    if (p.armorPen > 0) chips.push(['w', `${pct(p.armorPen)} armor pen`]);
+    if (p.shred > 0) chips.push(['w', `-${pct(p.shred)} armor`]);
+    if (p.leth > 0) chips.push(['', `${p.leth} lethality`]);
+    if (p.magicPen > 0) chips.push(['w', `${pct(p.magicPen)} magic pen`]);
+    if (p.mpFlat > 0) chips.push(['', `${p.mpFlat} flat MR pen`]);
+    if (p.pctHp) chips.push(['w', '%HP dmg']);
+    if (p.c.ranged) chips.push(['', 'ranged']);
+    const ownedIds = new Set(p.owned.map(i => i.id));
+    return `<tr>
+      <td><span class="who"><img alt="" src="${p.c.icon}">${esc(p.c.name)}</span></td>
+      <td class="n num">${fmt(p.total)}</td>
+      <td><div class="mini"><div class="bp" style="width:${p.sp * 100}%"></div><div class="bm" style="width:${p.sm * 100}%"></div><div class="bt" style="width:${p.st * 100}%"></div></div>
+        <span class="subtle num">${pct(p.sp)} / ${pct(p.sm)} / ${pct(p.st)}</span></td>
+      <td class="n num">${pct(p.aa)}</td>
+      <td><div class="chips">${chips.map(([c, t]) => `<span class="chip ${c}">${t}</span>`).join('')}</div></td>
+      <td><div class="bimg">${p.build.slice(0, 6).map(i => `<img class="${ownedIds.has(i.id) ? 'on' : 'off'}" alt="${esc(i.name)}" title="${esc(i.name)}${ownedIds.has(i.id) ? ' (owned at ' + S.minute + ':00)' : ''}" src="${i.icon}">`).join('')}</div></td>
+      <td class="n num"><span class="ar-c">${fmt(dm.arEff)}</span> / <span class="mr-c">${fmt(dm.mrEff)}</span></td>
+      <td class="n num">${pct(1 - dm.mult)}</td>
+      <td class="n num" style="color:var(--text-b);font-weight:600">${fmt(ehp)}</td></tr>`;
+  }).join('');
+  $('#etable').innerHTML = `<thead><tr><th>Enemy</th><th style="text-align:right">Dmg / game</th><th>Phys / Magic / True</th><th style="text-align:right">AA share</th><th>Threats</th><th>Typical build (lit = owned now)</th><th style="text-align:right">Your AR / MR vs them</th><th style="text-align:right">Mitigated</th><th style="text-align:right">Your EHP</th></tr></thead><tbody>${rows}</tbody>`;
+}
+
+/* ====================================================== CHART */
+function renderChart(me, profs){
+  const box = $('#chart');
+  const mult = teamMult(me, profs);
+  const ehp0 = me.hp / mult;
+  const reff = m => 100 * (1 / m - 1) ; // effective resistance: EHP = HP*(1+R/100)
+  const R0 = reff(mult);
+  const STEP = 250, MAXG = 4000;
+  const hpPath = [], rPath = [], mixPath = [];
+  let cur = { ...me };
+  for (let g = 0; g <= MAXG; g += STEP){
+    const t = { ...me, hp: me.hp + g / GOLD_HP2 };
+    hpPath.push({ g, hp: t.hp, r: R0, ehp: t.hp / mult });
+    const b = bestResist(me, profs, g);
+    rPath.push({ g, hp: me.hp, r: reff(teamMult(b.me, profs)), ehp: b.ehp, split: b.split });
+  }
+  // greedy ideal mix path
+  let m = { ...me };
+  mixPath.push({ g: 0, hp: m.hp, r: R0, ehp: ehp0 });
+  for (let g = STEP; g <= MAXG; g += STEP){
+    const h = { ...m, hp: m.hp + STEP / GOLD_HP2 };
+    const b = bestResist(m, profs, STEP);
+    m = ehpTeam(h, profs) >= b.ehp ? h : b.me;
+    const mm = teamMult(m, profs);
+    mixPath.push({ g, hp: m.hp, r: reff(mm), ehp: m.hp / mm });
+  }
+  const all = hpPath.concat(rPath, mixPath);
+  const xMax = Math.max(...all.map(p => p.hp)) * 1.12, yMax = Math.max(...all.map(p => p.r)) * 1.18 + 10;
+  const xMin = 0, yMin = 0;
+  const Wd = 720, Ht = 400, L = 56, Rm = 18, T = 16, B = 44;
+  const X = v => L + (v - xMin) / (xMax - xMin) * (Wd - L - Rm);
+  const Y = v => T + (1 - (v - yMin) / (yMax - yMin)) * (Ht - T - B);
+  const niceStep = (span, n) => { const r = span / n, p = Math.pow(10, Math.floor(Math.log10(r))); return [1, 2, 2.5, 5, 10].map(k => k * p).find(s => span / s <= n) || p * 10; };
+  const xs = niceStep(xMax, 6), ys = niceStep(yMax, 5);
+  let grid = '';
+  for (let v = 0; v <= xMax; v += xs) grid += `<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${Ht - B}" stroke="var(--line)"/><text x="${X(v)}" y="${Ht - B + 16}" fill="var(--text)" font-size="11" text-anchor="middle">${fmt(v)}</text>`;
+  for (let v = 0; v <= yMax; v += ys) grid += `<line x1="${L}" x2="${Wd - Rm}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${L - 8}" y="${Y(v) + 4}" fill="var(--text)" font-size="11" text-anchor="end">${fmt(v)}</text>`;
+  // iso-EHP contours
+  let iso = '';
+  const levels = [];
+  const e0 = ehp0, stepE = niceStep(e0, 4);
+  for (let e = stepE; e <= (xMax * (1 + yMax / 100)); e += stepE) levels.push(e);
+  for (const e of levels){
+    const pts = [];
+    for (let i = 0; i <= 60; i++){
+      const h = xMax * (0.04 + 0.96 * i / 60);
+      const r = 100 * (e / h - 1);
+      if (r < yMin - 1 || r > yMax) continue;
+      pts.push(`${X(h).toFixed(1)},${Y(r).toFixed(1)}`);
+    }
+    if (pts.length > 1){
+      iso += `<polyline points="${pts.join(' ')}" fill="none" stroke="var(--gold-d)" stroke-width="1" stroke-dasharray="3 4" opacity=".7"/>`;
+      const lastPt = pts[pts.length - 1].split(',');
+      iso += `<text x="${Math.min(+lastPt[0] + 2, Wd - Rm - 2)}" y="${+lastPt[1] - 4}" fill="var(--gold-d)" font-size="10" text-anchor="end">${fmt(e)} EHP</text>`;
+    }
+  }
+  // balance line: marginal EHP/gold equal for HP vs resists (local resist price)
+  const b1 = bestResist(me, profs, 1000);
+  const gPerR = 1000 / Math.max(0.01, reff(teamMult(b1.me, profs)) - R0); // gold per effective resist point
+  let bal = '';
+  const balPts = [];
+  for (let i = 0; i <= 40; i++){
+    const h = xMax * i / 40;
+    const r = h * GOLD_HP2 / gPerR - 100;
+    if (r >= yMin && r <= yMax) balPts.push(`${X(h).toFixed(1)},${Y(r).toFixed(1)}`);
+  }
+  if (balPts.length > 1) bal = `<polyline points="${balPts.join(' ')}" fill="none" stroke="var(--hex)" stroke-width="1.5" opacity=".8"/>`;
+  const balLabelH = xMax * 0.92, balLabelR = balLabelH * GOLD_HP2 / gPerR - 100;
+  const balLbl = balLabelR > yMin + 6 && balLabelR < yMax - 6 ? `<text x="${X(balLabelH)}" y="${Y(balLabelR) - 6}" fill="var(--hex)" font-size="10.5" text-anchor="end">break-even line</text>
+     <text x="${X(balLabelH)}" y="${Y(balLabelR) + 14}" fill="var(--hex-l)" font-size="10" text-anchor="end" opacity=".7">below: buy resists · above: buy health</text>` : '';
+  const line = (arr, color, w, dash = '') => `<polyline points="${arr.map(p => `${X(p.hp).toFixed(1)},${Y(p.r).toFixed(1)}`).join(' ')}" fill="none" stroke="${color}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ''} stroke-linecap="round" stroke-linejoin="round"/>`;
+  const dots = (arr, color, kind) => arr.filter(p => p.g && p.g % 1000 === 0).map(p => `<circle cx="${X(p.hp)}" cy="${Y(p.r)}" r="4" fill="${color}" stroke="var(--void)" stroke-width="1.5" data-k="${kind}" data-g="${p.g}" data-e="${Math.round(p.ehp)}" data-hp="${Math.round(p.hp)}" data-r="${Math.round(p.r)}"/>`).join('');
+  const last = a => a[a.length - 1];
+  box.innerHTML = `<svg viewBox="0 0 ${Wd} ${Ht}" role="img" aria-label="Health versus effective resistance chart">
+    <rect x="0" y="0" width="${Wd}" height="${Ht}" fill="var(--well)"/>
+    ${grid}${iso}${bal}${balLbl}
+    ${line(hpPath, 'var(--hp)', 2.5)}${line(rPath, 'var(--gold)', 2.5)}${line(mixPath, 'var(--hex-l)', 1.8, '5 4')}
+    ${dots(hpPath, 'var(--hp)', 'Health')}${dots(rPath, 'var(--gold)', 'Resists')}${dots(mixPath, 'var(--hex-l)', 'Ideal mix')}
+    <circle cx="${X(me.hp)}" cy="${Y(R0)}" r="7" fill="var(--text-b)" stroke="var(--void)" stroke-width="2"/>
+    <text x="${X(me.hp) + 10}" y="${Y(R0) + 18}" fill="var(--text-b)" font-size="11" font-weight="600">You: ${fmt(ehp0)} EHP</text>
+    <text x="${X(last(hpPath).hp)}" y="${Y(last(hpPath).r) - 9}" fill="var(--hp)" font-size="11" font-weight="600" text-anchor="end">+${fmt(MAXG)}g health</text>
+    <text x="${X(me.hp) + 9}" y="${Y(last(rPath).r) + 4}" fill="var(--gold)" font-size="11" font-weight="600">+${fmt(MAXG)}g resists</text>
+    <text x="${(L + Wd - Rm) / 2}" y="${Ht - 8}" fill="var(--text)" font-size="11" text-anchor="middle">Health</text>
+    <text x="14" y="${(T + Ht - B) / 2}" fill="var(--text)" font-size="11" text-anchor="middle" transform="rotate(-90 14 ${(T + Ht - B) / 2})">Effective resistance vs draft</text>
+  </svg><div class="tip" hidden></div>`;
+  const tip = box.querySelector('.tip');
+  box.querySelectorAll('circle[data-g]').forEach(c => {
+    const show = () => {
+      const r = box.getBoundingClientRect(), cr = c.getBoundingClientRect();
+      tip.hidden = false; tip.style.left = (cr.left - r.left + cr.width / 2) + 'px'; tip.style.top = (cr.top - r.top) + 'px';
+      tip.innerHTML = `<b>${c.dataset.k}</b> +${fmt(+c.dataset.g)} gold<br>${fmt(+c.dataset.hp)} HP · ${c.dataset.r} eff. resist<br><b>${fmt(+c.dataset.e)} EHP</b> (+${fmt(c.dataset.e - ehp0)})`;
+    };
+    c.addEventListener('mouseenter', show); c.addEventListener('focus', show);
+    c.addEventListener('mouseleave', () => tip.hidden = true);
+  });
+  // verdict for next 1000 gold
+  const hp1 = ehpTeam({ ...me, hp: me.hp + 1000 / GOLD_HP2 }, profs) - ehp0;
+  const r1 = b1.ehp - ehp0;
+  const hpWins = hp1 >= r1;
+  const split = b1.split;
+  $('#verdict').innerHTML = `
+    <div class="vcard ${hpWins ? 'win' : ''}"><span class="lbl">Next 1000g into health</span><div class="v num">+${fmt(hp1)} EHP</div><span class="subtle num">+${fmt(1000 / GOLD_HP2)} HP</span></div>
+    <div class="vcard ${!hpWins ? 'win' : ''}"><span class="lbl">Next 1000g into resists</span><div class="v num">+${fmt(r1)} EHP</div><span class="subtle num">ideal split ${pct(split)} armor / ${pct(1 - split)} MR</span></div>`;
+  const ratio = Math.max(hp1, r1) / Math.max(1, Math.min(hp1, r1));
+  const verdict = Math.abs(ratio - 1) < 0.06 ? 'Health and resistances are about equally efficient right now. Either works; pick whichever comes with the better passive.'
+    : hpWins ? `Buy health. Each gold in health gives ${pct(ratio - 1)} more EHP than resistances against this draft.`
+    : `Buy resistances${split > 0.75 ? ' (mostly armor)' : split < 0.25 ? ' (mostly magic resist)' : ''}. They give ${pct(ratio - 1)} more EHP per gold than health against this draft.`;
+  $('#say').textContent = verdict + (profs.length ? '' : ' (No enemies drafted, so a 50/50 physical/magic split is assumed.)');
+  box.dataset.legend = '';
+  box.insertAdjacentHTML('beforeend', `<div class="legend" style="margin-top:6px"><span><i style="background:var(--hp)"></i>All gold into health</span><span><i style="background:var(--gold)"></i>All gold into resists (ideal split)</span><span><i style="background:var(--hex-l)"></i>Best mix, 250g at a time</span><span class="subtle">Dots every 1000g · dashed curves = equal EHP · gold values from Ruby Crystal, Cloth Armor, Null-Magic Mantle</span></div>`);
+}
+
+/* ====================================================== SUGGESTIONS */
+function rankItems(){
+  const profs = teamProfiles();
+  const base = myStats();
+  const e0 = ehpTeam(base, profs);
+  const owned = new Set(S.inv.filter(Boolean));
+  const hasBoots = S.inv.some(id => id && D.items[id].cat === 'boots');
+  const out = [];
+  for (const it of Object.values(D.items)){
+    if (!it.defensive || it.cat === 'consumable' || it.cat === 'starter' || it.cat === 'trinket') continue;
+    if (it.cat !== 'legendary' && it.cat !== 'boots') continue;
+    if (owned.has(it.id)) continue;
+    let inv = S.inv.filter(Boolean);
+    if (it.cat === 'boots'){ if (hasBoots) inv = inv.filter(id => D.items[id].cat !== 'boots'); }
+    const e = ehpTeam(myStats({ inv: inv.concat(it.id) }), profs);
+    const gain = e - e0;
+    out.push({ it, gain, per1k: gain / it.gold * 1000 });
+  }
+  return out.sort((a, b) => b.per1k - a.per1k);
+}
+function renderSugg(){
+  const list = rankItems().slice(0, 10);
+  const top = list.length ? list[0].per1k : 1;
+  $('#sugg').innerHTML = list.map(r => `<button class="srow" data-id="${r.it.id}"><img alt="" src="${r.it.icon}">
+    <span style="min-width:0"><span class="nm">${esc(r.it.name)}</span><div class="bar" style="width:${Math.max(4, r.per1k / top * 100)}%"></div></span>
+    <span class="r num"><b>+${fmt(r.gain)}</b> EHP<br><span class="subtle">${fmt(r.per1k)} / 1000g</span></span></button>`).join('') +
+    `<p class="subtle" style="margin:6px 0 0">Counts only health, resistances, Steelcaps / Randuin's damage reduction and the passives toggled under Runes &amp; effects. Click an item to open it in the shop.</p>`;
+}
+
+/* ====================================================== PICKER */
+function openPicker(forWhat){
+  S.pickFor = forWhat;
+  $('#overlay').hidden = false;
+  $('#pickTitle').textContent = forWhat === 'me' ? 'Your champion' : `Enemy ${forWhat + 1}`;
+  $('#pickSearch').value = '';
+  renderPicker();
+  setTimeout(() => $('#pickSearch').focus(), 20);
+}
+function renderPicker(){
+  const q = $('#pickSearch').value.toLowerCase();
+  const taken = new Set(S.enemies);
+  const list = Object.values(D.champs).filter(c => c.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+  $('#pgrid').innerHTML = list.map(c => `<button class="pc${S.pickFor !== 'me' && taken.has(c.id) ? ' taken' : ''}" data-c="${c.id}"><img alt="" src="${c.icon}" loading="lazy"><span>${esc(c.name)}</span></button>`).join('');
+}
+
+/* ====================================================== WIRING */
+function update(){
+  const me = myStats();
+  const profs = teamProfiles();
+  renderShop(); renderDetail(); renderInv();
+  renderSide(me, profs); renderDraft(me, profs); renderChart(me, profs); renderSugg();
+  save();
+}
+function save(){
+  const keys = ['inv','trinket','elixir','champ','minute','autoLevel','level','cspm','autoTd','takedowns','sionOn','hsAuto','hsHp','shardFlex','shardDef','keystone','graspAuto','grasp','aftershock','conditioning','overgrowth','unflinching','jaksho','fon','enemies','exampleTeam'];
+  const o = {}; keys.forEach(k => o[k] = S[k]); store.set('state', o);
+}
+
+function wire(){
+  document.addEventListener('click', e => {
+    const t = e.target;
+    const tab = t.closest('.tab'); if (tab){ S.tab = tab.dataset.tab; renderShop(); return; }
+    const fb = t.closest('.fbtn'); if (fb){ S.filter = fb.dataset.f === '' ? null : (+fb.dataset.f === S.filter ? null : +fb.dataset.f); renderShop(); return; }
+    const itb = t.closest('.it, .nb, .d-into button, .srow');
+    if (itb){
+      S.sel = itb.dataset.id; S.selInv = null;
+      if (t.closest('.srow')) { S.tab = 'all'; S.filter = null; S.search = ''; $('#search').value = ''; }
+      renderShop(); renderDetail(); renderInv();
+      if (t.closest('.srow')) $('#detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return;
+    }
+    if (t.closest('#buyBtn')){ buy(S.sel); return; }
+    const sl = t.closest('.slot');
+    if (sl){
+      const k = sl.dataset.slot; const slot = k === 'trinket' || k === 'elixir' ? k : +k;
+      const id = slot === 'trinket' ? S.trinket : slot === 'elixir' ? S.elixir : S.inv[slot];
+      S.selInv = id ? slot : null; if (id) S.sel = id;
+      renderInv(); renderShop(); renderDetail(); return;
+    }
+    if (t.closest('#sellBtn') && S.selInv != null){ sell(S.selInv); return; }
+    if (t.closest('#undoBtn') && S.undo.length){ const u = JSON.parse(S.undo.pop()); Object.assign(S, u); S.selInv = null; update(); return; }
+    if (t.closest('#clearBtn')){ snapshot(); S.inv = [null,null,null,null,null,null]; S.elixir = null; update(); return; }
+    const rm = t.closest('[data-rm]'); if (rm){ e.stopPropagation(); S.enemies[+rm.dataset.rm] = null; S.exampleTeam = false; update(); return; }
+    const es = t.closest('.eslot'); if (es){ openPicker(+es.dataset.e); return; }
+    if (t.closest('#myChamp')){ openPicker('me'); return; }
+    const pc = t.closest('.pc');
+    if (pc){
+      if (S.pickFor === 'me'){ S.champ = pc.dataset.c; }
+      else { const i = S.enemies.indexOf(pc.dataset.c); if (i >= 0) S.enemies[i] = null; S.enemies[S.pickFor] = pc.dataset.c; S.exampleTeam = false; }
+      $('#overlay').hidden = true; update(); return;
+    }
+    if (t.closest('#pickClose') || t.id === 'overlay'){ $('#overlay').hidden = true; return; }
+  });
+  document.addEventListener('contextmenu', e => {
+    const it = e.target.closest('.it, .nb, .d-into button');
+    if (it){ e.preventDefault(); buy(it.dataset.id); return; }
+    const sl = e.target.closest('.slot');
+    if (sl){ e.preventDefault(); const k = sl.dataset.slot; const slot = k === 'trinket' || k === 'elixir' ? k : +k;
+      if ((slot === 'trinket' && S.trinket) || (slot === 'elixir' && S.elixir) || S.inv[slot]) sell(slot); }
+  });
+  document.addEventListener('dblclick', e => { const it = e.target.closest('.it'); if (it) buy(it.dataset.id); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#overlay').hidden = true; });
+  $('#search').addEventListener('input', e => { S.search = e.target.value; renderShop(); });
+  $('#pickSearch').addEventListener('input', renderPicker);
+  $('#pickSearch').addEventListener('keydown', e => { if (e.key === 'Enter'){ const f = $('#pgrid .pc'); if (f) f.click(); } });
+
+  const num = (id, key, f = Number) => document.addEventListener('input', e => { if (e.target.id === id){ S[key] = f(e.target.value); update(); } });
+  num('minute', 'minute'); num('level', 'level'); num('cspm', 'cspm'); num('td', 'takedowns'); num('grasp', 'grasp'); num('hsHp', 'hsHp');
+  document.addEventListener('change', e => {
+    const id = e.target.id;
+    const map = { autoLevel:'autoLevel', autoTd:'autoTd', sionOn:'sionOn', graspAuto:'graspAuto', aftershock:'aftershock', conditioning:'conditioning', overgrowth:'overgrowth', unflinching:'unflinching', jaksho:'jaksho', fon:'fon', hsAuto:'hsAuto' };
+    if (map[id]){
+      S[map[id]] = e.target.checked;
+      if (id === 'autoTd' && !S.autoTd) S.takedowns = Math.round(S.minute * 0.25);
+      if (id === 'graspAuto' && !S.graspAuto) S.grasp = Math.round(S.minute * 1.2);
+      if (id === 'hsAuto' && !S.hsAuto) S.hsHp = Math.round(myStats().hs);
+      if (id === 'autoLevel' && !S.autoLevel) S.level = levelFor(S.minute);
+      update();
+    }
+    if (id === 'keystone' || id === 'shardFlex' || id === 'shardDef'){ S[id] = e.target.value; update(); }
+  });
+}
+
+function footnote(){
+  $('#foot').innerHTML = `<b>How it's calculated.</b> EHP = Health ÷ (share of raw damage that gets through). Armor and magic resist reduce damage by 100 ÷ (100 + resist).
+  "Vs this draft" weights each enemy by their average champion damage per game and physical / magic / true split from Lolalytics (all lanes, current patch, scraped when this page was built), then applies the penetration from their most common build at the chosen minute
+  (1st legendary at ~13:00, then one every ~6.5 min; boots at 9:00): % armor / magic pen, lethality, flat magic pen, Black Cleaver at full stacks, Terminus at half value.
+  Auto-attack share is an estimate from role, physical share and how many attack-speed / crit / on-hit items they build; crit chance comes from their build. Plated Steelcaps reduce the auto-attack part, Randuin's the crit part.
+  Champion level stats use Riot's growth formula. <b>Sion:</b> Soul Furnace gives 4 max health per kill and 15 per cannon minion, large monster or champion takedown; cannon share follows the wave schedule (every 3rd wave before 15:00, every 2nd until 25:00, then every wave).
+  Not modeled: shields (Kaenic Rookern, Sterak's, Sion W), healing, champion-specific armor shred, Sion's passive revive. Data: Riot Data Dragon ${esc(D.version)}, Lolalytics, Meraki Analytics. Not endorsed by Riot Games.`;
+}
+
+function restore(){
+  const o = store.get('state');
+  if (!o) return false;
+  Object.assign(S, o);
+  // drop ids no longer in the data
+  S.inv = (S.inv || []).slice(0, 6).map(id => id && D.items[id] ? id : null); while (S.inv.length < 6) S.inv.push(null);
+  if (S.trinket && !D.items[S.trinket]) S.trinket = null;
+  if (S.elixir && !D.items[S.elixir]) S.elixir = null;
+  if (!D.champs[S.champ]) S.champ = 'Sion';
+  S.enemies = (S.enemies || []).slice(0, 5).map(c => c && D.champs[c] ? c : null); while (S.enemies.length < 5) S.enemies.push(null);
+  return true;
+}
+
+fetch('data.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(data => {
+  D = data;
+  prepItems();
+  if (!restore()){
+    // example starting build: Sion's common core
+    S.inv = ['3084', '3047', '2502', null, null, null];
+    S.sel = '3084';
+  }
+  buildLayout(); footnote(); update();
+}).catch(err => {
+  $('#loading').textContent = 'Could not load the item data (' + err.message + '). Reload the page to try again.';
+});
+})();
+</script>
