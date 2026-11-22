@@ -1,5 +1,7 @@
 # EHP Calculator
 
+Live: https://twiplek.github.io/ehp-calculator/
+
 A League of Legends effective-health calculator built around a copy of the in-game item shop.
 
 - Build in a shop laid out like the in-game one (right-click / double-click to buy, right-click a slot to sell).
