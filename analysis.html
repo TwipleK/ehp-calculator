@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Effective Health</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@300..700&display=swap">
+<link rel="stylesheet" href="base.css">
+<style>
+/* Everything that isn't the shop: your champion and EHP, the enemy draft, the health vs armor/MR curve,
+   best defensive buys, runes. Build comes from the shop page through localStorage. */
+.card{background:var(--s1);border:1px solid var(--line);border-radius:var(--r-lg);min-width:0}
+.card-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px 16px;padding:18px 20px 0;flex-wrap:wrap}
+.card-h h2{font-size:17px;font-weight:500;letter-spacing:-.01em}
+.card-b{padding:16px 20px 20px}
+.sub{color:var(--t3);font-size:13px}
+.lbl{font-size:12.5px;color:var(--t3)}
+.stack{display:flex;flex-direction:column;gap:16px}
+.cols{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:1050px){.cols{grid-template-columns:1fr}}
+
+/* build strip */
+.build{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:14px 16px}
+.build .items{display:flex;gap:6px}
+.build .items > .bslot{display:block;flex:none;width:44px;height:44px;border-radius:var(--r-sm);overflow:hidden}
+.build .items img.bslot{object-fit:cover;box-shadow:0 0 0 1px var(--line2)}
+.build .items span.bslot{border:1px dashed var(--line2);background:transparent}
+.build .cost{color:var(--gold);font-weight:450}
+.build .btn{margin-left:auto}
+
+/* hero: champion + EHP */
+.hero{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px 28px;align-items:center}
+@media (max-width:640px){.hero{grid-template-columns:1fr}}
+.champ{display:flex;gap:16px;align-items:center}
+.portrait{width:84px;height:84px;border-radius:var(--r-md);border:none;background:#000;padding:0;flex:none;position:relative;box-shadow:0 0 0 1px var(--line2)}
+.portrait img{width:100%;height:100%;display:block;border-radius:inherit}
+.portrait:hover{box-shadow:0 0 0 2px var(--t3)}
+.portrait .lv{position:absolute;bottom:-8px;right:-8px;background:var(--s4);color:var(--t1);font-size:12px;padding:1px 8px;border-radius:99px;font-weight:500;box-shadow:0 0 0 3px var(--s1)}
+.champ-n{font-size:22px;color:var(--t1);font-weight:500;letter-spacing:-.02em}
+.ctl{display:grid;grid-template-columns:auto minmax(120px,1fr) 3.6em;gap:8px 12px;align-items:center;width:100%}
+.ctl input[type=range]{width:100%;accent-color:var(--t1)}
+.ctl .v{color:var(--t1);text-align:right}
+.check{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2)}
+.check input{accent-color:var(--t1)}
+.ehp-main{display:flex;align-items:flex-end;gap:10px 28px;flex-wrap:wrap}
+.big{font-size:clamp(44px,6vw,64px);font-weight:600;letter-spacing:-.05em;line-height:.95;color:var(--t1)}
+.ehp-cells{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.cell{background:var(--s2);border-radius:var(--r-md);padding:12px 14px;display:flex;flex-direction:column;gap:2px}
+.cell .v{font-size:20px;font-weight:500;color:var(--t1)}
+.cell i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.statline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:8px}
+.statline div{padding:4px 14px;display:flex;flex-direction:column}
+.statline b{font-size:17px;font-weight:500}
+.statline small{color:var(--t3);font-size:12px}
+.hp-c{color:var(--hp)}.ar-c{color:var(--phys)}.mr-c{color:var(--magic)}
+.sion{background:var(--s2);border-radius:var(--r-md);padding:14px;display:flex;flex-direction:column;gap:10px;margin-top:16px}
+.sion h3{font-size:14px}
+.sion b{color:var(--hp);font-size:17px;font-weight:500}
+
+/* chart */
+.chart-box{position:relative}
+.chart-box svg{width:100%;height:auto;display:block;font-family:var(--f)}
+:root{--res:#a99cf5}
+.tip{position:absolute;pointer-events:none;background:var(--s4);border-radius:var(--r-sm);padding:8px 12px;font-size:12.5px;color:var(--t3);white-space:nowrap;transform:translate(-50%,-112%);display:grid;grid-template-columns:auto auto;gap:2px 14px}
+.tip[hidden]{display:none}
+.tip b{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px}
+.vcard{background:var(--s2);border-radius:var(--r-md);padding:12px 14px;border:1px solid transparent}
+.vcard.win{border-color:rgba(127,214,154,.45)}
+.vcard .v{font-size:20px;font-weight:500;color:var(--t1)}
+.vcard.win .v{color:var(--hp)}
+.say{margin:14px 0 0;color:var(--t1);font-size:15px;max-width:68ch}
+
+/* suggestions */
+.srow{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:12px;align-items:center;background:none;border:none;border-radius:var(--r-sm);padding:8px;text-align:left;width:100%}
+.srow:hover{background:var(--s2)}
+.srow img{width:40px;height:40px;border-radius:var(--r-xs)}
+.srow .nm{color:var(--t1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
+.srow .bar{height:4px;border-radius:2px;background:var(--hp);margin-top:6px;opacity:.8}
+.srow .r{text-align:right;font-size:13px;color:var(--t3)}
+.srow .r b{color:var(--hp);font-weight:500;font-size:14px}
+
+/* draft */
+.draft-top{display:flex;gap:24px;flex-wrap:wrap;align-items:flex-start}
+.slots{display:flex;gap:10px;flex-wrap:wrap}
+.eslot{width:72px;display:flex;flex-direction:column;align-items:center;gap:6px;background:none;border:none;padding:0}
+.eslot .pic{width:64px;height:64px;border-radius:var(--r-md);background:var(--s2);display:grid;place-items:center;color:var(--t3);font-size:24px;position:relative;box-shadow:0 0 0 1px var(--line2)}
+.eslot .pic img{width:100%;height:100%;display:block;border-radius:inherit}
+.eslot span.n{font-size:12px;color:var(--t2);max-width:72px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.eslot:hover .pic{box-shadow:0 0 0 2px var(--t3)}
+.eslot .x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--s4);color:var(--t1);font-size:13px;line-height:19px;box-shadow:0 0 0 3px var(--s1)}
+.team-bar{display:flex;height:22px;border-radius:99px;overflow:hidden;margin:6px 0}
+.team-bar div{height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#141414;min-width:0;overflow:hidden;white-space:nowrap}
+.bp{background:var(--phys)}.bm{background:var(--magic)}.bt{background:var(--true)}
+.legend{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:12.5px;color:var(--t3)}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+.tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.tag{background:var(--s2);border-radius:99px;padding:5px 12px;font-size:12.5px;display:flex;gap:8px;align-items:center}
+.tag b{color:var(--t1);font-weight:500}
+.tag.hi b{color:var(--warn)}
+.tag .sug{color:var(--t3)}
+details.more{margin-top:16px}
+details.more>summary{cursor:pointer;color:var(--t3);font-size:13px;list-style:none;display:inline-flex;gap:6px;align-items:center}
+details.more>summary::-webkit-details-marker{display:none}
+details.more>summary::before{content:"+";font-weight:600}
+details.more[open]>summary::before{content:"–"}
+.tbl-wrap{overflow-x:auto;margin-top:12px}
+table.et{border-collapse:collapse;width:100%;min-width:780px;font-size:13px}
+.et th{font-weight:400;text-align:left;color:var(--t3);font-size:12px;padding:8px;border-bottom:1px solid var(--line)}
+.et td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+.et .n{text-align:right}
+.et .who{display:flex;align-items:center;gap:10px;color:var(--t1)}
+.et .who img{width:30px;height:30px;border-radius:var(--r-xs)}
+.mini{display:flex;height:6px;width:110px;border-radius:3px;overflow:hidden;margin-bottom:3px}
+.chips{display:flex;gap:4px;flex-wrap:wrap}
+.chip{font-size:11.5px;background:var(--s3);border-radius:99px;padding:1px 8px;color:var(--t2)}
+.chip.w{color:var(--warn)}
+.bimg{display:flex;gap:3px}
+.bimg img{width:22px;height:22px;border-radius:5px}
+.bimg img.off{opacity:.3}
+
+/* runes */
+.runes{display:flex;flex-direction:column;gap:10px}
+.rune{display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap}
+.rune img{width:26px;height:26px;border-radius:50%}
+.inp{background:var(--s2);border:1px solid var(--line2);border-radius:var(--r-xs);padding:5px 8px;width:5.5em;color:var(--t1)}
+select.inp{width:auto;max-width:100%;align-self:flex-start}
+.foot{color:var(--t4);font-size:12.5px;max-width:110ch;line-height:1.7;margin:28px 0 0}
+.foot b{color:var(--t3);font-weight:450}
+
+/* picker */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:50;display:grid;place-items:center;padding:16px}
+.picker{width:min(820px,100%);max-height:min(680px,100%);display:flex;flex-direction:column;background:var(--s1);border:1px solid var(--line2);border-radius:var(--r-lg)}
+.picker-h{display:flex;gap:10px;align-items:center;padding:16px;flex-wrap:wrap}
+.picker-h h2{font-size:17px;margin-right:auto}
+.picker-h input{background:var(--s2);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 12px;color:var(--t1);outline:none;flex:1 1 220px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:12px 8px;padding:4px 16px 16px;overflow-y:auto}
+.pc{background:none;border:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11.5px;color:var(--t2);min-width:0}
+.pc img{width:56px;height:56px;border-radius:var(--r-sm)}
+.pc:hover img{box-shadow:0 0 0 2px var(--t3)}
+.pc span{max-width:68px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc.taken{opacity:.3}
+</style>
+
+<div class="page">
+  <header class="top">
+    <a class="mark" href="analysis.html">Effective health<small id="patch">How much damage your build takes before you die</small></a>
+    <nav class="seg" aria-label="Pages"><a href="./">Shop</a><a href="analysis.html" aria-current="page">Effective health</a></nav>
+  </header>
+  <div class="loading" id="loading">Loading…</div>
+  <div class="stack" id="app" hidden>
+    <section class="card build" aria-label="Your build">
+      <span class="lbl">Your build</span><div class="items" id="buildItems"></div><span class="cost num" id="buildCost"></span>
+      <a class="btn" href="./">Change items in the shop</a>
+    </section>
+
+    <div class="cols">
+      <section class="card">
+        <div class="card-b hero">
+          <div class="champ">
+            <button class="portrait" id="myChamp" title="Change champion" aria-label="Change champion"></button>
+            <div><div class="champ-n" id="champName"></div><div class="sub" id="lvlNote"></div></div>
+          </div>
+          <div class="ctl">
+            <label class="lbl" for="minute">Minute</label><input type="range" id="minute" min="0" max="45" step="1"><span class="v num" id="minuteV"></span>
+            <label class="lbl" for="level">Level</label><input type="range" id="level" min="1" max="18" step="1"><span class="v num" id="levelV"></span>
+            <span></span><label class="check" style="grid-column:2/4"><input type="checkbox" id="autoLevel"> Level from minute (solo lane)</label>
+          </div>
+        </div>
+        <div class="card-b" style="padding-top:4px">
+          <div class="ehp-main">
+            <div><div class="lbl">Effective health against this draft</div><div class="big num" id="eD"></div></div>
+            <div class="sub" id="eDnote" style="padding-bottom:6px"></div>
+          </div>
+          <div class="ehp-cells">
+            <div class="cell"><span class="lbl"><i style="background:var(--phys)"></i>All physical</span><span class="v num" id="eP"></span></div>
+            <div class="cell"><span class="lbl"><i style="background:var(--magic)"></i>All magic</span><span class="v num" id="eM"></span></div>
+            <div class="cell"><span class="lbl"><i style="background:var(--t2)"></i>Half and half</span><span class="v num" id="eX"></span></div>
+          </div>
+          <div class="statline">
+            <div><small>Health</small><b class="num hp-c" id="sHp"></b><small class="num" id="sHp2"></small></div>
+            <div><small>Armor</small><b class="num ar-c" id="sAr"></b><small class="num" id="sAr2"></small></div>
+            <div><small>Magic resist</small><b class="num mr-c" id="sMr"></b><small class="num" id="sMr2"></small></div>
+          </div>
+          <div id="sionBox"></div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-h"><h2>Best defensive buys</h2><span class="sub">EHP against this draft per 1000 gold</span></div>
+        <div class="card-b" id="sugg" style="padding-top:8px"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-h"><h2>Health or resistances?</h2><span class="sub">Where gold buys more effective health</span></div>
+      <div class="card-b">
+        <div class="chart-box" id="chart"></div>
+        <div class="verdict" id="verdict"></div>
+        <p class="say" id="say"></p>
+      </div>
+    </section>
+
+    <section class="card" aria-label="Enemy draft">
+      <div class="card-h"><h2>Enemy draft</h2><span class="sub" id="draftNote"></span></div>
+      <div class="card-b">
+        <div class="draft-top">
+          <div class="slots" id="slots"></div>
+          <div style="flex:1;min-width:240px">
+            <span class="lbl">Team damage, from Lolalytics average damage per game</span>
+            <div class="team-bar" id="teamBar"></div>
+            <div class="legend"><span><i class="bp"></i>Physical</span><span><i class="bm"></i>Magic</span><span><i class="bt"></i>True</span><span id="teamAA"></span></div>
+            <div class="tags" id="threats"></div>
+          </div>
+        </div>
+        <details class="more"><summary>Per-enemy breakdown</summary><div class="tbl-wrap"><table class="et" id="etable"></table></div></details>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h"><h2>Runes and item effects</h2></div>
+      <div class="card-b runes" id="runes"></div>
+    </section>
+  </div>
+  <p class="foot" id="foot"></p>
+</div>
+
+<div class="overlay" id="overlay" hidden>
+  <div class="picker" role="dialog" aria-modal="true" aria-labelledby="pickTitle">
+    <div class="picker-h"><h2 id="pickTitle">Pick a champion</h2>
+      <input id="pickSearch" placeholder="Search champions" autocomplete="off" aria-label="Search champions">
+      <button class="btn" id="pickClose">Close</button></div>
+    <div class="pgrid" id="pgrid"></div>
+  </div>
+</div>
+
+<script src="core.js"></script>
+<script>
+(() => {
+'use strict';
+const { $, $$, esc, fmt, pct, S } = EHP;
+const { myStats, teamProfiles, teamMult, ehpTeam, ehpPhys, ehpMag, ehpMix, resMult, damageMult, bestResist, sionStacks, levelFor } = EHP;
+let D, pickFor = null;
+
+/* ---------------------------------------------------------------- build strip */
+function renderBuild(){
+  $('#buildItems').innerHTML = S.inv.map(id => id ? `<img class="bslot" alt="${esc(D.items[id].name)}" title="${esc(D.items[id].name)}" src="${D.items[id].icon}">` : '<span class="bslot" title="Empty slot"></span>').join('');
+  $('#buildCost').innerHTML = `<span class="coin"></span>${fmt(EHP.buildCost())}`;
+}
+
+/* ---------------------------------------------------------------- champion + EHP */
+function renderSide(me, profs){
+  const ch = D.champs[S.champ];
+  $('#myChamp').innerHTML = `<img alt="" src="${ch.icon}"><span class="lv num">${me.lvl}</span>`;
+  $('#champName').textContent = ch.name;
+  $('#lvlNote').textContent = `Level ${me.lvl} at ${S.minute}:00`;
+  $('#minute').value = S.minute; $('#minuteV').textContent = S.minute + ':00';
+  $('#level').value = me.lvl; $('#level').disabled = S.autoLevel; $('#levelV').textContent = 'Lv ' + me.lvl;
+  $('#autoLevel').checked = S.autoLevel;
+  $('#eP').textContent = fmt(ehpPhys(me));
+  $('#eM').textContent = fmt(ehpMag(me));
+  $('#eX').textContent = fmt(ehpMix(me));
+  $('#eD').textContent = fmt(ehpTeam(me, profs));
+  $('#eDnote').textContent = profs.length ? `${pct(1 - teamMult(me, profs), 1)} of their damage is mitigated` : 'No enemies drafted, so half physical, half magic';
+  $('#sHp').textContent = fmt(me.hp); $('#sHp2').textContent = `${fmt(me.baseHp)} base + ${fmt(me.bonusHp)}`;
+  $('#sAr').textContent = fmt(me.armor); $('#sAr2').textContent = `${pct(1 - resMult(me.armor))} less physical`;
+  $('#sMr').textContent = fmt(me.mr); $('#sMr2').textContent = `${pct(1 - resMult(me.mr))} less magic`;
+
+  const box = $('#sionBox');
+  if (S.champ === 'Sion'){
+    const s = me.sion || sionStacks();
+    if (!box.dataset.built){
+      box.dataset.built = 1;
+      box.innerHTML = `<div class="sion">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h3>Soul Furnace stacks</h3><label class="check"><input type="checkbox" id="sionOn"> Include</label></div>
+        <div class="ctl">
+          <label class="lbl" for="cspm">CS / min</label><input type="range" id="cspm" min="3" max="11" step="0.5"><span class="v num" id="cspmV"></span>
+          <label class="lbl" for="td">Takedowns</label><input type="range" id="td" min="0" max="40" step="1"><span class="v num" id="tdV"></span>
+          <span></span><label class="check" style="grid-column:2/4"><input type="checkbox" id="autoTd"> Estimate takedowns (0.25 / min)</label>
+        </div>
+        <div id="stackOut"></div></div>`;
+    }
+    $('#sionOn').checked = S.sionOn;
+    $('#cspm').value = S.cspm; $('#cspmV').textContent = S.cspm.toFixed(1);
+    $('#td').value = s.td; $('#td').disabled = S.autoTd; $('#tdV').textContent = s.td; $('#autoTd').checked = S.autoTd;
+    $('#stackOut').innerHTML = `<b class="num">+${fmt(s.hp)}</b> max health at ${S.minute}:00
+      <div class="sub num">${fmt(s.cs)} CS: ${fmt(s.small)} small × 4 + ${fmt(s.large)} cannons × 15, plus ${s.td} takedowns × 15</div>`;
+  } else { box.innerHTML = ''; delete box.dataset.built; }
+}
+
+function renderRunes(me){
+  const R = D.runes;
+  const r = (key, inner) => `<div class="rune">${R[key] ? `<img alt="" src="${R[key].icon}" title="${esc(R[key].desc)}">` : ''}${inner}</div>`;
+  const graspProcs = S.graspAuto ? Math.round(S.minute * 1.2) : S.grasp;
+  const jakItem = me.items.find(i => i.fx.jaksho), fonItem = me.items.find(i => i.fx.fon);
+  $('#runes').innerHTML = `
+    <span class="lbl">Keystone</span>
+    <select class="inp" id="keystone"><option value="none">Other keystone</option><option value="grasp">Grasp of the Undying</option><option value="aftershock">Aftershock</option></select>
+    ${S.keystone === 'grasp' ? r('GraspOfTheUndying', `<span>Procs</span><input class="inp num" type="number" id="grasp" min="0" max="400" value="${graspProcs}" ${S.graspAuto ? 'disabled' : ''}><label class="check"><input type="checkbox" id="graspAuto" ${S.graspAuto ? 'checked' : ''}> About 1.2 per minute</label><span class="sub num">+${fmt(me.grasp)} health</span>`) : ''}
+    ${S.keystone === 'aftershock' ? r('Aftershock', `<label class="check"><input type="checkbox" id="aftershock" ${S.aftershock ? 'checked' : ''}> Aftershock active (2.5 s after you CC)</label>`) : ''}
+    <span class="lbl" style="margin-top:6px">Resolve</span>
+    ${r('Conditioning', `<label class="check"><input type="checkbox" id="conditioning" ${S.conditioning ? 'checked' : ''}> Conditioning <span class="sub">${S.minute >= 12 ? '+8 armor, +8 MR, +3%' : '(starts at 12:00)'}</span></label>`)}
+    ${r('Overgrowth', `<label class="check"><input type="checkbox" id="overgrowth" ${S.overgrowth ? 'checked' : ''}> Overgrowth <span class="sub num">+${fmt(me.og)} health${me.ogPct ? ', +3.5%' : ''}</span></label>`)}
+    ${r('Unflinching', `<label class="check"><input type="checkbox" id="unflinching" ${S.unflinching ? 'checked' : ''}> Unflinching (while crowd-controlled)</label>`)}
+    <span class="lbl" style="margin-top:6px">Stat shards</span>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <select class="inp" id="shardFlex" aria-label="Flex shard"><option value="other">Flex: adaptive or move speed</option><option value="hpscale">Flex: health 10–180</option></select>
+      <select class="inp" id="shardDef" aria-label="Defense shard"><option value="hp">Defense: 65 health</option><option value="hpscale">Defense: health 10–180</option><option value="other">Defense: tenacity</option></select>
+    </div>
+    ${jakItem || fonItem || me.hasHs ? '<span class="lbl" style="margin-top:6px">Item passives</span>' : ''}
+    ${jakItem ? `<div class="rune"><img alt="" src="${jakItem.icon}" style="border-radius:7px"><label class="check"><input type="checkbox" id="jaksho" ${S.jaksho ? 'checked' : ''}> Jak'Sho in combat (+${pct(jakItem.fx.jaksho)} bonus resists)</label></div>` : ''}
+    ${fonItem ? `<div class="rune"><img alt="" src="${fonItem.icon}" style="border-radius:7px"><label class="check"><input type="checkbox" id="fon" ${S.fon ? 'checked' : ''}> Force of Nature fully stacked (+${fonItem.fx.fon} MR)</label></div>` : ''}
+    ${me.hasHs ? `<div class="rune"><img alt="" src="${D.items['3084'].icon}" style="border-radius:7px"><span>Heartsteel stacks</span><input class="inp num" type="number" id="hsHp" min="0" max="3000" value="${Math.round(me.hs)}" ${S.hsAuto ? 'disabled' : ''}><label class="check"><input type="checkbox" id="hsAuto" ${S.hsAuto ? 'checked' : ''}> Estimate</label></div>` : ''}
+    <p class="sub" style="margin:4px 0 0">Plated Steelcaps and Randuin's Omen are applied automatically against the enemies' auto-attacks and crits.</p>`;
+  $('#keystone').value = S.keystone; $('#shardFlex').value = S.shardFlex; $('#shardDef').value = S.shardDef;
+}
+
+/* ---------------------------------------------------------------- draft */
+function renderDraft(me, profs){
+  $('#slots').innerHTML = S.enemies.map((cid, i) => {
+    const c = cid && D.champs[cid];
+    return `<button class="eslot" data-e="${i}" aria-label="${c ? 'Change ' + esc(c.name) : 'Pick enemy ' + (i + 1)}">
+      <span class="pic">${c ? `<img alt="" src="${c.icon}"><span class="x" data-rm="${i}" aria-label="Remove ${esc(c.name)}" role="button">×</span>` : '+'}</span><span class="n">${c ? esc(c.name) : 'Enemy ' + (i + 1)}</span></button>`;
+  }).join('');
+  $('#draftNote').textContent = S.exampleTeam ? 'Example team. Click a portrait to change it.' : `${profs.length} enemies at ${S.minute}:00`;
+  if (!profs.length){ $('#teamBar').innerHTML = ''; $('#teamAA').textContent = ''; $('#threats').innerHTML = '<span class="sub">Pick enemies to see what damage they deal.</span>'; $('#etable').innerHTML = ''; return; }
+  const W = profs.reduce((a, p) => a + p.total, 0);
+  const tp = profs.reduce((a, p) => a + p.total * p.sp, 0) / W;
+  const tm = profs.reduce((a, p) => a + p.total * p.sm, 0) / W;
+  const tt = 1 - tp - tm;
+  const taa = profs.reduce((a, p) => a + p.total * p.aa, 0) / W;
+  $('#teamBar').innerHTML = `<div class="bp" style="width:${tp * 100}%">${tp > .08 ? pct(tp) : ''}</div><div class="bm" style="width:${tm * 100}%">${tm > .08 ? pct(tm) : ''}</div><div class="bt" style="width:${tt * 100}%">${tt > .08 ? pct(tt) : ''}</div>`;
+  $('#teamAA').textContent = `About ${pct(taa)} from auto-attacks`;
+
+  const tags = [];
+  const names = arr => arr.map(p => p.c.name).join(', ');
+  if (tp >= 0.62) tags.push(['hi', 'Heavy physical', 'armor over MR']);
+  else if (tm >= 0.55) tags.push(['hi', 'Heavy magic', 'MR over armor']);
+  else tags.push(['', 'Mixed damage', 'health and both resists']);
+  if (tt >= 0.1) tags.push(['hi', `${pct(tt)} true damage`, 'health beats resists']);
+  if (taa >= 0.35) tags.push(['hi', 'Auto-attack heavy', 'Steelcaps, Frozen Heart, Thornmail']);
+  const critters = profs.filter(p => p.crit >= 0.4 || p.core.filter(i => i.st.crit > 0).length >= 2);
+  if (critters.length) tags.push(['hi', `Crit: ${names(critters)}`, "Randuin's Omen"]);
+  const pen = profs.filter(p => p.core.some(i => i.st.armorpen > 0 || i.fx.shred || i.st.lethality > 0));
+  if (pen.length) tags.push([pen.length >= 2 ? 'hi' : '', `Armor pen: ${names(pen)}`, '']);
+  const mpen = profs.filter(p => p.core.some(i => i.st.magicpenPct > 0 || i.st.magicpen > 0));
+  if (mpen.length) tags.push(['', `Magic pen: ${names(mpen)}`, '']);
+  const pcts = profs.filter(p => p.pctHp);
+  if (pcts.length) tags.push([pcts.length >= 2 ? 'hi' : '', `%-health damage: ${names(pcts)}`, pcts.length >= 2 ? 'stacking only health is weaker' : '']);
+  const gw = profs.filter(p => p.gw);
+  if (gw.length) tags.push(['', `Grievous Wounds: ${names(gw)}`, '']);
+  $('#threats').innerHTML = tags.map(([cls, a, s]) => `<span class="tag ${cls}"><b>${esc(a)}</b>${s ? `<span class="sug">${esc(s)}</span>` : ''}</span>`).join('');
+
+  const rows = profs.map(p => {
+    const dm = damageMult(p, me);
+    const chips = [];
+    if (p.aa >= 0.4) chips.push(['w', 'AA heavy']); else if (p.aa >= 0.2) chips.push(['', 'some AA']);
+    if (p.crit > 0) chips.push([p.crit >= 0.5 ? 'w' : '', `${pct(p.crit)} crit`]);
+    if (p.armorPen > 0) chips.push(['w', `${pct(p.armorPen)} armor pen`]);
+    if (p.shred > 0) chips.push(['w', `-${pct(p.shred)} armor`]);
+    if (p.leth > 0) chips.push(['', `${p.leth} lethality`]);
+    if (p.magicPen > 0) chips.push(['w', `${pct(p.magicPen)} magic pen`]);
+    if (p.mpFlat > 0) chips.push(['', `${p.mpFlat} flat pen`]);
+    if (p.pctHp) chips.push(['w', '%HP dmg']);
+    const ownedIds = new Set(p.owned.map(i => i.id));
+    return `<tr>
+      <td><span class="who"><img alt="" src="${p.c.icon}">${esc(p.c.name)}</span></td>
+      <td class="n num">${fmt(p.total)}</td>
+      <td><div class="mini"><div class="bp" style="width:${p.sp * 100}%"></div><div class="bm" style="width:${p.sm * 100}%"></div><div class="bt" style="width:${p.st * 100}%"></div></div>
+        <span class="sub num">${pct(p.sp)} / ${pct(p.sm)} / ${pct(p.st)}</span></td>
+      <td><div class="chips">${chips.map(([c, t]) => `<span class="chip ${c}">${t}</span>`).join('')}</div></td>
+      <td><div class="bimg">${p.build.slice(0, 6).map(i => `<img class="${ownedIds.has(i.id) ? '' : 'off'}" alt="${esc(i.name)}" title="${esc(i.name)}${ownedIds.has(i.id) ? ' (owned at ' + S.minute + ':00)' : ''}" src="${i.icon}">`).join('')}</div></td>
+      <td class="n num"><span class="ar-c">${fmt(dm.arEff)}</span> / <span class="mr-c">${fmt(dm.mrEff)}</span></td>
+      <td class="n num" style="color:var(--t1)">${fmt(me.hp / dm.mult)}</td></tr>`;
+  }).join('');
+  $('#etable').innerHTML = `<thead><tr><th>Enemy</th><th class="n">Damage per game</th><th>Physical / magic / true</th><th>Threats</th><th>Usual build (bright = owned now)</th><th class="n">Your armor / MR vs them</th><th class="n">Your EHP</th></tr></thead><tbody>${rows}</tbody>`;
+}
+
+/* ---------------------------------------------------------------- chart: HP vs armor/MR equilibrium
+   EHP = HP × (1 + R/100). One gold of health adds (1 + R/100) / goldPerHp, one gold of resist adds HP / (100 × goldPerResist).
+   They're equal on the line HP = (100 + R) × goldPerResist / goldPerHp. Above it buy resists, below it buy health. */
+function renderChart(me, profs){
+  const box = $('#chart');
+  const G = EHP.gold();
+  const kAr = G.ar / G.hp, kMr = G.mr / G.hp;
+  const mult = teamMult(me, profs);
+  const rDraft = 100 * (1 / mult - 1); // the single resist value giving the same EHP vs this draft
+  const xMax = Math.max(300, Math.ceil(rDraft * 1.25 / 50) * 50);
+  const yMax = Math.max(3000, Math.ceil(Math.max(me.hp * 1.2, (100 + xMax) * Math.max(kAr, kMr)) / 500) * 500);
+  const Wd = 900, Ht = 440, L = 62, Rm = 128, T = 20, B = 52;
+  const X = v => L + v / xMax * (Wd - L - Rm);
+  const Y = v => T + (1 - v / yMax) * (Ht - T - B);
+  const xs = xMax <= 400 ? 50 : 100, ys = yMax <= 4000 ? 500 : 1000;
+  let grid = '';
+  for (let v = 0; v <= yMax; v += ys) grid += `<line x1="${L}" x2="${Wd - Rm}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line2)"/><text x="${L - 12}" y="${Y(v) + 4}" fill="var(--t3)" font-size="12" text-anchor="end">${fmt(v)}</text>`;
+  for (let v = 0; v <= xMax; v += xs) grid += `<text x="${X(v)}" y="${Ht - B + 22}" fill="var(--t3)" font-size="12" text-anchor="middle">${v}</text>`;
+  const lineFor = (k, color, dash) => {
+    // clip to chart
+    const r1 = Math.min(xMax, yMax / k - 100);
+    return `<line x1="${X(0)}" y1="${Y(100 * k)}" x2="${X(r1)}" y2="${Y((100 + r1) * k)}" stroke="${color}" stroke-width="3" stroke-linecap="round" ${dash ? 'stroke-dasharray="8 7"' : ''}/>`;
+  };
+  const same = Math.abs(kAr - kMr) < 0.01;
+  const k = (kAr + kMr) / 2;
+  // shade "buy health" side (below the line)
+  const rEnd = Math.min(xMax, yMax / k - 100);
+  const below = `M${X(0)},${Y(100 * k)} L${X(rEnd)},${Y((100 + rEnd) * k)} ${rEnd < xMax ? `L${X(xMax)},${Y(yMax)}` : ''} L${X(xMax)},${Y(0)} L${X(0)},${Y(0)} Z`;
+  const above = `M${X(0)},${Y(100 * k)} L${X(rEnd)},${Y((100 + rEnd) * k)} ${rEnd < xMax ? `L${X(rEnd)},${Y(yMax)}` : `L${X(xMax)},${Y(yMax)}`} L${X(0)},${Y(yMax)} Z`;
+  const lines = same ? lineFor(k, 'var(--t2)') : lineFor(kAr, 'var(--phys)') + lineFor(kMr, 'var(--magic)', true);
+  // which side is which: two quiet labels in the right margin where the line leaves the chart
+  const ey = Y((100 + rEnd) * k), hx = X(rEnd) + 16;
+  const arrow = (x, y, up, c) => `<path d="M${x} ${y + (up ? 4 : -4)} L${x + 5} ${y + (up ? -3 : 3)} L${x + 10} ${y + (up ? 4 : -4)}" fill="none" stroke="${c}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+  const hints = `<g font-size="13.5" font-weight="500">
+      ${arrow(hx, ey - 22, true, 'var(--res)')}<text x="${hx + 17}" y="${ey - 17}" fill="var(--res)">Buy resists</text>
+      ${arrow(hx, ey + 18, false, 'var(--hp)')}<text x="${hx + 17}" y="${ey + 23}" fill="var(--hp)">Buy health</text>
+    </g>`;
+  // the build itself: your health against the one resist value that gives the same EHP vs this draft
+  const bx = X(Math.min(rDraft, xMax)), by = Y(me.hp);
+  const row = (k, v, c) => `<span>${k}</span><b${c ? ` style="color:${c}"` : ''}>${v}</b>`;
+  const youTip = row('EHP', fmt(me.hp / mult), 'var(--t1)') + row('HP', fmt(me.hp), 'var(--hp)') + row('Armor', fmt(me.armor), 'var(--phys)') + row('MR', fmt(me.mr), 'var(--magic)');
+  const you = `<g data-tip="${esc(youTip)}" tabindex="0" aria-label="Your build">
+      <circle cx="${bx}" cy="${by}" r="22" fill="transparent"/>
+      <circle cx="${bx}" cy="${by}" r="15" fill="var(--t1)" opacity=".12"/>
+      <circle cx="${bx}" cy="${by}" r="8" fill="var(--t1)" stroke="var(--s1)" stroke-width="3"/></g>`;
+  box.innerHTML = `<svg viewBox="0 0 ${Wd} ${Ht}" role="img" aria-label="Health versus armor and magic resist. The line marks where health and resistances give equal effective health per gold.">
+    <path d="${above}" fill="var(--res)" opacity=".09"/>
+    <path d="${below}" fill="var(--hp)" opacity=".08"/>
+    ${grid}
+    <line x1="${L}" x2="${L}" y1="${T}" y2="${Ht - B}" stroke="var(--line2)"/>
+    ${lines}
+    ${hints}
+    ${you}
+    <text x="${(L + Wd - Rm) / 2}" y="${Ht - 8}" fill="var(--t3)" font-size="12.5" text-anchor="middle">Armor / magic resist</text>
+    <text x="16" y="${(T + Ht - B) / 2}" fill="var(--t3)" font-size="12.5" text-anchor="middle" transform="rotate(-90 16 ${(T + Ht - B) / 2})">Health</text>
+  </svg><div class="tip" hidden></div>
+  <div class="legend" style="margin-top:8px">${same ? `<span><i style="background:var(--t2)"></i>Break-even: health = (100 + resist) × ${k.toFixed(1)}</span>` : `<span><i style="background:var(--phys)"></i>Break-even for armor</span><span><i style="background:var(--magic)"></i>Break-even for magic resist</span>`}<span><i style="background:var(--t1)"></i>Your build (effective resist against this draft)</span><span>Gold values from Ruby Crystal, Cloth Armor and Null-Magic Mantle</span></div>`;
+  const tip = box.querySelector('.tip');
+  box.querySelectorAll('[data-tip]').forEach(g => {
+    const show = () => { const r = box.getBoundingClientRect(), c = g.lastElementChild.getBoundingClientRect();
+      tip.hidden = false; tip.style.left = (c.left - r.left + c.width / 2) + 'px'; tip.innerHTML = g.dataset.tip;
+      const flip = c.top - r.top < tip.offsetHeight + 16; // near the top of the chart: show it below the dot
+      tip.style.top = (flip ? c.bottom - r.top : c.top - r.top) + 'px'; tip.style.transform = flip ? 'translate(-50%, 12px)' : ''; };
+    g.addEventListener('mouseenter', show); g.addEventListener('focus', show);
+    g.addEventListener('mouseleave', () => tip.hidden = true); g.addEventListener('blur', () => tip.hidden = true);
+  });
+
+  // verdict for the next 1000 gold against this draft
+  const ehp0 = me.hp / mult;
+  const b1 = bestResist(me, profs, 1000);
+  const hp1 = ehpTeam({ ...me, hp: me.hp + 1000 / G.hp }, profs) - ehp0;
+  const r1 = b1.ehp - ehp0;
+  const hpWins = hp1 >= r1, split = b1.split;
+  $('#verdict').innerHTML = `
+    <div class="vcard ${hpWins ? 'win' : ''}"><span class="lbl">Next 1000 gold into health</span><div class="v num">+${fmt(hp1)} EHP</div><span class="sub num">+${fmt(1000 / G.hp)} health</span></div>
+    <div class="vcard ${!hpWins ? 'win' : ''}"><span class="lbl">Next 1000 gold into resists</span><div class="v num">+${fmt(r1)} EHP</div><span class="sub num">best split ${pct(split)} armor, ${pct(1 - split)} MR</span></div>`;
+  const ratio = Math.max(hp1, r1) / Math.max(1, Math.min(hp1, r1));
+  $('#say').textContent = Math.abs(ratio - 1) < 0.06 ? 'Health and resistances are about equal right now. Pick whichever item has the better passive.'
+    : hpWins ? `Buy health. Against this draft it gives ${pct(ratio - 1)} more effective health per gold than resistances.`
+    : `Buy resistances${split > 0.75 ? ', mostly armor' : split < 0.25 ? ', mostly magic resist' : ''}. Against this draft they give ${pct(ratio - 1)} more effective health per gold than health.`;
+}
+
+/* ---------------------------------------------------------------- suggestions */
+function rankItems(){
+  const profs = teamProfiles();
+  const e0 = ehpTeam(myStats(), profs);
+  const owned = new Set(S.inv.filter(Boolean));
+  const hasBoots = S.inv.some(id => id && D.items[id].cat === 'boots');
+  const out = [];
+  for (const it of Object.values(D.items)){
+    if (!it.defensive || (it.cat !== 'legendary' && it.cat !== 'boots') || owned.has(it.id)) continue;
+    let inv = S.inv.filter(Boolean);
+    if (it.cat === 'boots' && hasBoots) inv = inv.filter(id => D.items[id].cat !== 'boots');
+    const gain = ehpTeam(myStats({ inv: inv.concat(it.id) }), profs) - e0;
+    out.push({ it, gain, per1k: gain / it.gold * 1000 });
+  }
+  return out.sort((a, b) => b.per1k - a.per1k);
+}
+function renderSugg(){
+  const list = rankItems().slice(0, 8);
+  const top = list.length ? list[0].per1k : 1;
+  $('#sugg').innerHTML = list.map(r => `<div class="srow"><img alt="" src="${r.it.icon}">
+    <span style="min-width:0"><span class="nm">${esc(r.it.name)}</span><div class="bar" style="width:${Math.max(4, r.per1k / top * 100)}%"></div></span>
+    <span class="r num"><b>+${fmt(r.gain)}</b><br>${fmt(r.per1k)} / 1000g</span></div>`).join('') +
+    `<p class="sub" style="margin:10px 8px 0">Counts health, resistances, Steelcaps and Randuin's damage reduction, and the passives turned on under runes and item effects.</p>`;
+}
+
+/* ---------------------------------------------------------------- picker */
+function openPicker(forWhat){
+  pickFor = forWhat;
+  $('#overlay').hidden = false;
+  $('#pickTitle').textContent = forWhat === 'me' ? 'Your champion' : `Enemy ${forWhat + 1}`;
+  $('#pickSearch').value = '';
+  renderPicker();
+  setTimeout(() => $('#pickSearch').focus(), 20);
+}
+function renderPicker(){
+  const q = $('#pickSearch').value.toLowerCase();
+  const taken = new Set(S.enemies);
+  const list = Object.values(D.champs).filter(c => c.name.toLowerCase().includes(q)).sort((a, b) => a.name.localeCompare(b.name));
+  $('#pgrid').innerHTML = list.map(c => `<button class="pc${pickFor !== 'me' && taken.has(c.id) ? ' taken' : ''}" data-c="${c.id}"><img alt="" src="${c.icon}" loading="lazy"><span>${esc(c.name)}</span></button>`).join('');
+}
+
+/* ---------------------------------------------------------------- wiring */
+function update(){
+  const me = myStats(), profs = teamProfiles();
+  renderBuild(); renderSide(me, profs); renderChart(me, profs); renderSugg(); renderDraft(me, profs); renderRunes(me);
+  EHP.save();
+}
+function wire(){
+  document.addEventListener('click', e => {
+    const t = e.target;
+    const rm = t.closest('[data-rm]'); if (rm){ e.stopPropagation(); S.enemies[+rm.dataset.rm] = null; S.exampleTeam = false; update(); return; }
+    const es = t.closest('.eslot'); if (es){ openPicker(+es.dataset.e); return; }
+    if (t.closest('#myChamp')){ openPicker('me'); return; }
+    const pc = t.closest('.pc');
+    if (pc){
+      if (pickFor === 'me') S.champ = pc.dataset.c;
+      else { const i = S.enemies.indexOf(pc.dataset.c); if (i >= 0) S.enemies[i] = null; S.enemies[pickFor] = pc.dataset.c; S.exampleTeam = false; }
+      $('#overlay').hidden = true; update(); return;
+    }
+    if (t.closest('#pickClose') || t.id === 'overlay'){ $('#overlay').hidden = true; }
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#overlay').hidden = true; });
+  $('#pickSearch').addEventListener('input', renderPicker);
+  $('#pickSearch').addEventListener('keydown', e => { if (e.key === 'Enter'){ const f = $('#pgrid .pc'); if (f) f.click(); } });
+  const nums = { minute: 'minute', level: 'level', cspm: 'cspm', td: 'takedowns', grasp: 'grasp', hsHp: 'hsHp' };
+  document.addEventListener('input', e => { const k = nums[e.target.id]; if (k){ S[k] = Number(e.target.value); update(); } });
+  const checks = ['autoLevel','autoTd','sionOn','graspAuto','aftershock','conditioning','overgrowth','unflinching','jaksho','fon','hsAuto'];
+  document.addEventListener('change', e => {
+    const id = e.target.id;
+    if (checks.includes(id)){
+      S[id] = e.target.checked;
+      if (id === 'autoTd' && !S.autoTd) S.takedowns = Math.round(S.minute * 0.25);
+      if (id === 'graspAuto' && !S.graspAuto) S.grasp = Math.round(S.minute * 1.2);
+      if (id === 'hsAuto' && !S.hsAuto) S.hsHp = Math.round(myStats().hs);
+      if (id === 'autoLevel' && !S.autoLevel) S.level = levelFor(S.minute);
+      update();
+    }
+    if (id === 'keystone' || id === 'shardFlex' || id === 'shardDef'){ S[id] = e.target.value; update(); }
+  });
+}
+function footnote(){
+  $('#foot').innerHTML = `<b>How it's calculated.</b> EHP = health ÷ share of raw damage that gets through. Armor and magic resist reduce damage by 100 ÷ (100 + resist).
+  Against the draft, each enemy is weighted by their average champion damage per game and their physical / magic / true split from Lolalytics, then their most common build at the chosen minute applies penetration
+  (first legendary around 13:00, then one every 6.5 minutes, boots at 9:00): % armor and magic pen, lethality, flat magic pen, Black Cleaver at full stacks, Terminus at half value.
+  Auto-attack share is estimated from role, physical share and attack-speed, crit and on-hit items. <b>Sion:</b> Soul Furnace gives 4 health per kill and 15 per cannon, large monster or takedown.
+  Not modeled: shields, healing, champion-specific armor shred, Sion's revive. Data: Riot Data Dragon ${esc(D.version)}, Lolalytics, Meraki Analytics. Not endorsed by Riot Games.`;
+}
+
+EHP.onSync = update;
+EHP.load().then(d => { D = d; $('#loading').remove(); $('#app').hidden = false; wire(); footnote(); update(); })
+  .catch(err => { $('#loading').textContent = `Couldn't load the data (${err.message}). Reload the page to try again.`; });
+})();
+</script>

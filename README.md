@@ -4,11 +4,12 @@ Live: https://twiplek.github.io/ehp-calculator/
 
 A League of Legends effective-health calculator built around a copy of the in-game item shop.
 
-- Build in a shop laid out like the in-game one (right-click / double-click to buy, right-click a slot to sell).
-- EHP against full physical, full magic, 50/50 mixed, and against a drafted enemy team.
-- Enemy damage split (physical / magic / true) from Lolalytics, penetration from their common build at the chosen minute, estimated auto-attack and crit share.
-- Health vs. resistances chart with the ideal armor / MR split against the draft, plus the best defensive items per 1000 gold.
-- Sion Soul Furnace stack estimate from minute, CS/min and takedowns.
+Two pages:
+
+- **Shop** (`index.html`): the Summoner's Rift item shop laid out like the in-game one. Search, class tabs, stat filters, recipe tree, right-click or double-click to buy, right-click a slot to sell. No consumables, trinkets or ARAM / Arena items.
+- **Effective health** (`analysis.html`): EHP against full physical, full magic, mixed and a drafted enemy team (Lolalytics damage split, penetration from their usual build), a health vs armor / MR break-even chart, the best defensive buys per 1000 gold, runes and Sion Soul Furnace stacks.
+
+Both pages share the build through localStorage. Shared code lives in `core.js` and `base.css`.
 
 ## Run
 
